@@ -1,0 +1,96 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Dark mode default */
+  --color-canvas: #121214;
+  --color-canvas-subtle: #0a0a0c;
+  --color-surface: #18181b;
+  --color-surface-elevated: #27272a;
+  --color-surface-hover: #2e2e33;
+
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-subtle: rgba(255, 255, 255, 0.04);
+  --color-border-strong: rgba(255, 255, 255, 0.16);
+
+  --color-accent: #0071e3;
+  --color-accent-hover: #0077ed;
+  --color-accent-active: #005bb5;
+  --color-accent-muted: rgba(0, 113, 227, 0.15);
+
+  --color-text-primary: #f5f5f7;
+  --color-text-secondary: #a1a1a6;
+  --color-text-tertiary: #6e6e73;
+  --color-text-disabled: #48484a;
+  --color-text-inverse: #000000;
+
+  --color-success: #30d158;
+  --color-warning: #ff9f0a;
+  --color-error: #ff453a;
+}
+
+.light {
+  --color-canvas: #f5f5f7;
+  --color-canvas-subtle: #ebebed;
+  --color-surface: #ffffff;
+  --color-surface-elevated: #f2f2f7;
+  --color-surface-hover: #e5e5ea;
+
+  --color-border: rgba(0, 0, 0, 0.08);
+  --color-border-subtle: rgba(0, 0, 0, 0.04);
+  --color-border-strong: rgba(0, 0, 0, 0.16);
+
+  --color-accent: #007aff;
+  --color-accent-hover: #0066d6;
+  --color-accent-active: #0051a8;
+  --color-accent-muted: rgba(0, 122, 255, 0.12);
+
+  --color-text-primary: #1d1d1f;
+  --color-text-secondary: #6e6e73;
+  --color-text-tertiary: #86868b;
+  --color-text-disabled: #aeaeb2;
+  --color-text-inverse: #ffffff;
+
+  --color-success: #34c759;
+  --color-warning: #ff9500;
+  --color-error: #ff3b30;
+}
+
+/* Global resets & typography */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-canvas);
+  color: var(--color-text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+}
+
+/* Tabular numbers for all timecodes */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Visible accessible focus rings */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Accessibility: respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
