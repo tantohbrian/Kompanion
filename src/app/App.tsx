@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { Settings as SettingsIcon, Film } from 'lucide-react';
 import { checkBrowserCompatibility } from './compatibility';
@@ -8,10 +8,18 @@ import { useTheme } from './theme';
 import { AppRoutes } from './routes';
 import { ToastProvider, TooltipProvider, IconButton } from '../ui';
 import { SettingsModal } from '../features/settings/SettingsModal';
+import { purgeExpiredDeletedProjects } from '../core/storage/storage';
 
 export const App: React.FC = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { theme, setTheme } = useTheme();
+
+  useEffect(() => {
+    // Purge any soft-deleted projects that expired while app was closed
+    purgeExpiredDeletedProjects(10000).catch((err) => {
+      console.warn('Failed to purge expired projects on boot:', err);
+    });
+  }, []);
 
   const compatibility = useMemo(() => {
     return checkBrowserCompatibility();

@@ -9,6 +9,8 @@ coverage/
 playwright-report/
 test-results/
 *.tsbuildinfo
+vite.config.js
+vite.config.d.ts
 
 # Environment and logs
 *.log
