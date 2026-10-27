@@ -125,8 +125,9 @@ graph TD
 
 ---
 
-### M2: Ingest and Parse
+### M2: Ingest and Parse [COMPLETED]
 - **Goal**: Ingest numbered images, multi-file audio, and timestamped scripts, with robust parsing and review.
+- **Status**: Completed. All unit tests, fixture parsing, Web Audio waveform worker, natural sort 60-image ingest, mismatch resolver, review table, and Playwright E2E tests verified.
 - **Deliverables**:
   - Multi-image drop/picker (PNG, JPG, WebP) with natural sort (`1, 2, 10`), reorderable thumbnail grid.
   - Multi-audio ingest (MP3, WAV, M4A) joined in natural order, displaying total duration.

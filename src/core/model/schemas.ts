@@ -78,6 +78,7 @@ export const ParseDiagnosticSchema = z.object({
 
 export const ParseResultSchema = z.object({
   strategyName: z.string(),
+  strategyLabel: z.string().optional(),
   segments: z.array(ParsedSegmentSchema),
   diagnostics: z.array(ParseDiagnosticSchema),
 });

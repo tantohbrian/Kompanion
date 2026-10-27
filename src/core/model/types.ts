@@ -10,13 +10,25 @@ export type VideoHeight = 720 | 1080;
 export type VideoFps = 24 | 30 | 60;
 export type ClipFit = 'cover' | 'contain';
 
+export type AnimationPresetId = 'none' | 'ken-burns' | 'pan' | 'pop';
+export type TransitionPresetId = 'cut' | 'crossfade' | 'dip-to-black';
+
+export interface KenBurnsParams {
+  direction?: 'in' | 'out' | 'alternate';
+  intensity?: number; // 4..10
+}
+
+export interface PanParams {
+  direction?: 'left' | 'right' | 'up' | 'down';
+}
+
 export interface AnimationRef {
-  id: string;
+  id: AnimationPresetId | string;
   params: Record<string, number | string>;
 }
 
 export interface TransitionRef {
-  id: string;
+  id: TransitionPresetId | string;
   durationMs: number;
 }
 
@@ -88,6 +100,7 @@ export interface ParseDiagnostic {
 
 export interface ParseResult {
   strategyName: string;
+  strategyLabel?: string;
   segments: ParsedSegment[];
   diagnostics: ParseDiagnostic[];
 }

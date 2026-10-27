@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Settings2, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { Dialog, Button } from '../../ui';
-import { Workspace, CanvasRatio, VideoHeight, VideoFps } from '../../core/model/types';
+import { Workspace, CanvasRatio, VideoHeight, VideoFps, AnimationPresetId, TransitionPresetId } from '../../core/model/types';
 import { WORKSPACE_COLOR_SWATCHES } from './workspaceStore';
 import { DeleteWorkspaceDialog } from './DeleteWorkspaceDialog';
+import { DefaultPresetSettings } from './DefaultPresetSettings';
 
 interface WorkspaceSettingsModalProps {
   open: boolean;
@@ -25,8 +26,11 @@ export const WorkspaceSettingsModal: React.FC<WorkspaceSettingsModalProps> = ({
   const [canvas, setCanvas] = useState<CanvasRatio>('16:9');
   const [height, setHeight] = useState<VideoHeight>(1080);
   const [fps, setFps] = useState<VideoFps>(30);
-  const [animId, setAnimId] = useState('none');
-  const [transId, setTransId] = useState('cut');
+  const [animId, setAnimId] = useState<AnimationPresetId>('none');
+  const [kbDirection, setKbDirection] = useState<'in' | 'out' | 'alternate'>('in');
+  const [kbIntensity, setKbIntensity] = useState<number>(5);
+  const [panDirection, setPanDirection] = useState<'left' | 'right' | 'up' | 'down'>('left');
+  const [transId, setTransId] = useState<TransitionPresetId>('cut');
   const [transDurationMs, setTransDurationMs] = useState(500);
   const [isSaving, setIsSaving] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -38,8 +42,18 @@ export const WorkspaceSettingsModal: React.FC<WorkspaceSettingsModalProps> = ({
       setCanvas(workspace.defaults.canvas);
       setHeight(workspace.defaults.height);
       setFps(workspace.defaults.fps);
-      setAnimId(workspace.defaults.animation.id);
-      setTransId(workspace.defaults.transition.id);
+      const aId = (workspace.defaults.animation.id as AnimationPresetId) || 'none';
+      setAnimId(aId);
+      if (workspace.defaults.animation.params) {
+        const d = workspace.defaults.animation.params.direction;
+        if (d === 'in' || d === 'out' || d === 'alternate') setKbDirection(d);
+        if (d === 'left' || d === 'right' || d === 'up' || d === 'down') setPanDirection(d);
+        if (workspace.defaults.animation.params.intensity) {
+          setKbIntensity(Number(workspace.defaults.animation.params.intensity) || 5);
+        }
+      }
+      const tId = (workspace.defaults.transition.id as TransitionPresetId) || 'cut';
+      setTransId(tId);
       setTransDurationMs(workspace.defaults.transition.durationMs || 500);
     }
   }, [workspace, open]);
@@ -51,6 +65,13 @@ export const WorkspaceSettingsModal: React.FC<WorkspaceSettingsModalProps> = ({
     if (!name.trim()) return;
     setIsSaving(true);
     try {
+      const animParams: Record<string, number | string> = {};
+      if (animId === 'ken-burns') {
+        animParams.direction = kbDirection;
+        animParams.intensity = kbIntensity;
+      } else if (animId === 'pan') {
+        animParams.direction = panDirection;
+      }
       await onSave(workspace.id, {
         name: name.trim(),
         color,
@@ -58,7 +79,7 @@ export const WorkspaceSettingsModal: React.FC<WorkspaceSettingsModalProps> = ({
           canvas,
           height,
           fps,
-          animation: { id: animId, params: {} },
+          animation: { id: animId, params: animParams },
           transition: {
             id: transId,
             durationMs: transId === 'cut' ? 0 : Math.round(transDurationMs),
@@ -120,103 +141,26 @@ export const WorkspaceSettingsModal: React.FC<WorkspaceSettingsModalProps> = ({
           </div>
 
           {/* Defaults Section */}
-          <div className="p-3 bg-surface-elevated rounded-panel border border-border space-y-3">
-            <div className="flex items-center gap-1.5 pb-2 border-b border-border-subtle">
-              <Settings2 className="w-3.5 h-3.5 text-accent" />
-              <span className="text-xs font-semibold text-text-primary">
-                Default Project Settings
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div>
-                <label htmlFor="ws-aspect-select" className="block text-text-secondary mb-1">Aspect Ratio</label>
-                <select
-                  id="ws-aspect-select"
-                  value={canvas}
-                  onChange={(e) => setCanvas(e.target.value as CanvasRatio)}
-                  className="w-full bg-surface border border-border rounded-control px-2 py-1 text-xs text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                >
-                  <option value="16:9">16:9 (Landscape)</option>
-                  <option value="9:16">9:16 (Shorts / Vertical)</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="ws-fps-select" className="block text-text-secondary mb-1">Framerate & Height</label>
-                <div className="flex gap-1.5">
-                  <select
-                    id="ws-fps-select"
-                    value={fps}
-                    onChange={(e) => setFps(Number(e.target.value) as VideoFps)}
-                    className="flex-1 bg-surface border border-border rounded-control px-2 py-1 text-xs text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                  >
-                    <option value={24}>24 fps</option>
-                    <option value={30}>30 fps</option>
-                    <option value={60}>60 fps</option>
-                  </select>
-                  <select
-                    id="ws-height-select"
-                    value={height}
-                    aria-label="Resolution height"
-                    onChange={(e) => setHeight(Number(e.target.value) as VideoHeight)}
-                    className="flex-1 bg-surface border border-border rounded-control px-2 py-1 text-xs text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                  >
-                    <option value={1080}>1080p</option>
-                    <option value={720}>720p</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="ws-anim-select" className="block text-text-secondary mb-1">Default Animation</label>
-                <select
-                  id="ws-anim-select"
-                  value={animId}
-                  onChange={(e) => setAnimId(e.target.value)}
-                  className="w-full bg-surface border border-border rounded-control px-2 py-1 text-xs text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                >
-                  <option value="none">None (Static)</option>
-                  <option value="zoom-in">Ken Burns: Zoom In</option>
-                  <option value="zoom-out">Ken Burns: Zoom Out</option>
-                  <option value="pan-left">Ken Burns: Pan Left</option>
-                  <option value="pan-right">Ken Burns: Pan Right</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="ws-trans-select" className="block text-text-secondary mb-1">Default Transition</label>
-                <select
-                  id="ws-trans-select"
-                  value={transId}
-                  onChange={(e) => setTransId(e.target.value)}
-                  className="w-full bg-surface border border-border rounded-control px-2 py-1 text-xs text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                >
-                  <option value="cut">Cut (0 ms)</option>
-                  <option value="crossfade">Crossfade (Dissolve)</option>
-                  <option value="dip-to-black">Dip to Black</option>
-                </select>
-              </div>
-            </div>
-
-            {transId !== 'cut' && (
-              <div className="pt-2">
-                <div className="flex justify-between text-xs text-text-secondary mb-1">
-                  <span>Transition Duration</span>
-                  <span className="font-mono tabular-nums">{transDurationMs} ms</span>
-                </div>
-                <input
-                  type="range"
-                  min={100}
-                  max={2000}
-                  step={50}
-                  value={transDurationMs}
-                  onChange={(e) => setTransDurationMs(Number(e.target.value))}
-                  className="w-full accent-accent cursor-pointer"
-                />
-              </div>
-            )}
-          </div>
+          <DefaultPresetSettings
+            canvas={canvas}
+            setCanvas={setCanvas}
+            height={height}
+            setHeight={setHeight}
+            fps={fps}
+            setFps={setFps}
+            animId={animId}
+            setAnimId={setAnimId}
+            kbDirection={kbDirection}
+            setKbDirection={setKbDirection}
+            kbIntensity={kbIntensity}
+            setKbIntensity={setKbIntensity}
+            panDirection={panDirection}
+            setPanDirection={setPanDirection}
+            transId={transId}
+            setTransId={setTransId}
+            transDurationMs={transDurationMs}
+            setTransDurationMs={setTransDurationMs}
+          />
 
           {/* Modal Actions */}
           <div className="flex items-center justify-between pt-3 border-t border-border">
