@@ -1,129 +1,278 @@
-import React from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, SkipBack, ZoomIn, ZoomOut, Film, Settings } from 'lucide-react';
-import { Button, IconButton, Panel } from '../../ui';
+import React, { useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { EditorTopBar } from './EditorTopBar';
+import { LeftPanel } from './LeftPanel';
+import { CanvasPreview } from './CanvasPreview';
+import { TransportBar } from './TransportBar';
+import { Inspector } from './Inspector';
+import { Timeline } from './Timeline';
+import { useTimelineStore } from '../../core/timeline';
+import { registerShortcut, useShortcuts } from '../../app/shortcuts';
+import { playerController } from './playerController';
+import { useAutosave } from './useAutosave';
 
-export const EditorPage: React.FC = () => {
+export interface EditorPageProps {
+  onNavigateStep?: (step: 'ingest' | 'review' | 'timeline') => void;
+  onOpenSettings?: () => void;
+  onExport?: () => void;
+}
+
+export const EditorPage: React.FC<EditorPageProps> = ({
+  onNavigateStep,
+  onOpenSettings,
+  onExport,
+}) => {
   const { workspaceId = 'default', projectId = 'new' } = useParams<{
     workspaceId: string;
     projectId: string;
   }>();
-  const navigate = useNavigate();
+
+  const project = useTimelineStore((s) => s.project);
+  const fps = project?.settings.fps || 30;
+
+  // Initialize debounced autosave
+  useAutosave(500);
+
+  // Initialize global shortcuts listener hook
+  useShortcuts();
+
+  // Register P0 shortcuts for the editor session
+  useEffect(() => {
+    const unregisterList: (() => void)[] = [];
+
+    // Space: Play / Pause
+    unregisterList.push(
+      registerShortcut({
+        id: 'editor-play-pause',
+        key: 'Space',
+        description: 'Play/Pause Timeline',
+        action: () => playerController.togglePlay(),
+      })
+    );
+
+    // Left: Step back 1 frame
+    unregisterList.push(
+      registerShortcut({
+        id: 'editor-step-back-frame',
+        key: 'ArrowLeft',
+        description: 'Step Back 1 Frame',
+        action: () => playerController.stepFrame(-1, fps),
+      })
+    );
+
+    // Right: Step forward 1 frame
+    unregisterList.push(
+      registerShortcut({
+        id: 'editor-step-fwd-frame',
+        key: 'ArrowRight',
+        description: 'Step Forward 1 Frame',
+        action: () => playerController.stepFrame(1, fps),
+      })
+    );
+
+    // Shift + Left: Step back 1 second
+    unregisterList.push(
+      registerShortcut({
+        id: 'editor-step-back-sec',
+        key: 'ArrowLeft',
+        shift: true,
+        description: 'Step Back 1 Second',
+        action: () => playerController.seek(useTimelineStore.getState().playheadMs - 1000),
+      })
+    );
+
+    // Shift + Right: Step forward 1 second
+    unregisterList.push(
+      registerShortcut({
+        id: 'editor-step-fwd-sec',
+        key: 'ArrowRight',
+        shift: true,
+        description: 'Step Forward 1 Second',
+        action: () => playerController.seek(useTimelineStore.getState().playheadMs + 1000),
+      })
+    );
+
+    // Home: Jump to start
+    unregisterList.push(
+      registerShortcut({
+        id: 'editor-jump-start',
+        key: 'Home',
+        description: 'Jump to Timeline Start',
+        action: () => playerController.seek(0),
+      })
+    );
+
+    // End: Jump to end
+    unregisterList.push(
+      registerShortcut({
+        id: 'editor-jump-end',
+        key: 'End',
+        description: 'Jump to Timeline End',
+        action: () => {
+          const totalMs = playerController.getClock().getTimeMs();
+          playerController.seek(totalMs);
+        },
+      })
+    );
+
+    // S: Split clip at playhead
+    unregisterList.push(
+      registerShortcut({
+        id: 'editor-split',
+        key: 's',
+        description: 'Split Selected Clip at Playhead',
+        action: () => {
+          const state = useTimelineStore.getState();
+          if (state.selectedClipId) {
+            state.splitClip(state.selectedClipId, state.playheadMs);
+          }
+        },
+      })
+    );
+
+    // Delete / Backspace: Ripple delete clip
+    unregisterList.push(
+      registerShortcut({
+        id: 'editor-delete',
+        key: 'Delete',
+        description: 'Delete Selected Clip',
+        action: () => {
+          const state = useTimelineStore.getState();
+          if (state.selectedClipId) {
+            state.deleteClip(state.selectedClipId);
+          }
+        },
+      }),
+      registerShortcut({
+        id: 'editor-backspace',
+        key: 'Backspace',
+        description: 'Delete Selected Clip',
+        action: () => {
+          const state = useTimelineStore.getState();
+          if (state.selectedClipId) {
+            state.deleteClip(state.selectedClipId);
+          }
+        },
+      })
+    );
+
+    // Cmd/Ctrl + D: Duplicate clip
+    unregisterList.push(
+      registerShortcut({
+        id: 'editor-duplicate',
+        key: 'd',
+        ctrlOrCmd: true,
+        description: 'Duplicate Selected Clip',
+        action: () => {
+          const state = useTimelineStore.getState();
+          if (state.selectedClipId) {
+            state.duplicateClip(state.selectedClipId);
+          }
+        },
+      })
+    );
+
+    // Cmd/Ctrl + Z: Undo
+    unregisterList.push(
+      registerShortcut({
+        id: 'editor-undo',
+        key: 'z',
+        ctrlOrCmd: true,
+        description: 'Undo',
+        action: () => {
+          useTimelineStore.temporal.getState().undo();
+        },
+      })
+    );
+
+    // Shift + Cmd/Ctrl + Z: Redo
+    unregisterList.push(
+      registerShortcut({
+        id: 'editor-redo-shift',
+        key: 'z',
+        ctrlOrCmd: true,
+        shift: true,
+        description: 'Redo',
+        action: () => {
+          useTimelineStore.temporal.getState().redo();
+        },
+      }),
+      registerShortcut({
+        id: 'editor-redo-y',
+        key: 'y',
+        ctrlOrCmd: true,
+        description: 'Redo',
+        action: () => {
+          useTimelineStore.temporal.getState().redo();
+        },
+      })
+    );
+
+    // Zoom +/-/0
+    unregisterList.push(
+      registerShortcut({
+        id: 'editor-zoom-in',
+        key: '+',
+        description: 'Zoom In Timeline',
+        action: () => {
+          const z = useTimelineStore.getState().zoom;
+          useTimelineStore.getState().setZoom(z * 1.25);
+        },
+      }),
+      registerShortcut({
+        id: 'editor-zoom-out',
+        key: '-',
+        description: 'Zoom Out Timeline',
+        action: () => {
+          const z = useTimelineStore.getState().zoom;
+          useTimelineStore.getState().setZoom(z / 1.25);
+        },
+      }),
+      registerShortcut({
+        id: 'editor-zoom-fit',
+        key: '0',
+        description: 'Reset Timeline Zoom',
+        action: () => {
+          useTimelineStore.getState().setZoom(1.0);
+        },
+      })
+    );
+
+    return () => {
+      for (const unregister of unregisterList) {
+        unregister();
+      }
+    };
+  }, [fps]);
 
   return (
-    <div className="flex flex-col h-full bg-canvas text-text-primary select-none">
-      {/* Top Navigation Bar */}
-      <header className="h-12 border-b border-border bg-surface px-4 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <IconButton
-            aria-label="Back to projects"
-            onClick={() => navigate(`/w/${workspaceId}`)}
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </IconButton>
-          <span className="text-xs text-text-tertiary">/</span>
-          <span className="text-xs font-semibold text-text-primary">{projectId}</span>
-        </div>
+    <div className="flex flex-col h-full bg-canvas text-text-primary select-none overflow-hidden">
+      {/* Top Bar */}
+      <EditorTopBar
+        workspaceId={workspaceId}
+        projectName={project?.name || projectId}
+        onNavigateStep={onNavigateStep}
+        onOpenSettings={onOpenSettings}
+        onExport={onExport}
+      />
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => {}}
-            aria-label="Project settings"
-          >
-            <Settings className="w-3.5 h-3.5 mr-1" />
-            Settings
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => {}}
-            aria-label="Export video"
-          >
-            <Film className="w-3.5 h-3.5 mr-1" />
-            Export MP4
-          </Button>
-        </div>
-      </header>
-
-      {/* Main Workspace (Preview + Inspector) */}
+      {/* Main 3-Pane Body */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Canvas Preview Area */}
-        <div className="flex-1 bg-canvas-subtle flex flex-col items-center justify-center p-6 relative">
-          <div className="aspect-video w-full max-w-3xl bg-black rounded-panel border border-border flex items-center justify-center shadow-2xl relative overflow-hidden">
-            <span className="text-xs text-text-tertiary tracking-widest uppercase font-mono">
-              1920 × 1080 (16:9) Canvas Preview
-            </span>
-          </div>
+        {/* Left Panel: Media & Script */}
+        <LeftPanel />
 
-          {/* Transport / Playback bar */}
-          <div className="mt-4 flex items-center gap-4 bg-surface px-4 py-1.5 rounded-control border border-border">
-            <IconButton
-              aria-label="Jump to start"
-              size="sm"
-            >
-              <SkipBack className="w-3.5 h-3.5" />
-            </IconButton>
-            <IconButton
-              aria-label="Play timeline"
-              size="sm"
-            >
-              <Play className="w-4 h-4" />
-            </IconButton>
-            <span className="text-xs font-mono tabular-nums text-text-secondary">
-              00:00:00 / 00:00:00
-            </span>
-          </div>
+        {/* Center Panel: Canvas Preview & Transport */}
+        <div className="flex-1 flex flex-col min-w-0 bg-canvas-subtle overflow-hidden">
+          <CanvasPreview />
+          <TransportBar />
         </div>
 
-        {/* Right Inspector Panel */}
-        <aside className="w-72 border-l border-border bg-surface flex flex-col shrink-0">
-          <div className="p-3 border-b border-border">
-            <h2 className="text-xs font-semibold text-text-primary uppercase tracking-wider">
-              Inspector
-            </h2>
-          </div>
-          <div className="p-4 flex-1 text-xs text-text-secondary leading-relaxed">
-            Select a timeline clip to adjust Ken Burns animations, transitions, or duration.
-          </div>
-        </aside>
+        {/* Right Panel: Contextual Inspector */}
+        <Inspector />
       </div>
 
-      {/* Bottom Timeline Area */}
-      <footer className="h-56 border-t border-border bg-surface flex flex-col shrink-0">
-        <div className="h-9 px-4 border-b border-border-subtle flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-text-secondary">Timeline</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <IconButton
-              aria-label="Zoom out timeline"
-              size="sm"
-            >
-              <ZoomOut className="w-3.5 h-3.5" />
-            </IconButton>
-            <IconButton
-              aria-label="Zoom in timeline"
-              size="sm"
-            >
-              <ZoomIn className="w-3.5 h-3.5" />
-            </IconButton>
-          </div>
-        </div>
-
-        {/* Tracks */}
-        <div className="flex-1 p-3 flex flex-col gap-2 overflow-x-auto">
-          {/* Video Track */}
-          <Panel className="h-16 flex items-center px-4 bg-canvas border border-dashed border-border-subtle text-xs text-text-tertiary">
-            Visual Track (Drag image assets or paste script to assemble)
-          </Panel>
-          {/* Audio Track */}
-          <Panel className="h-14 flex items-center px-4 bg-canvas border border-dashed border-border-subtle text-xs text-text-tertiary">
-            Audio Track (Voiceover MP3/WAV with waveform)
-          </Panel>
-        </div>
-      </footer>
+      {/* Bottom Panel: Magnetic Timeline */}
+      <Timeline />
     </div>
   );
 };

@@ -50,9 +50,9 @@ test.describe('M0 Foundation Smoke & Accessibility', () => {
     await page.goto('/w/default/p/demo-1');
     // Switch to Timeline step to view canvas editor
     await page.getByRole('button', { name: '3. Timeline' }).click();
-    await expect(page.getByText('Inspector')).toBeVisible();
-    await expect(page.getByText('Timeline', { exact: true })).toBeVisible();
-    await expect(page.getByText('1920 × 1080 (16:9) Canvas Preview')).toBeVisible();
+    await expect(page.getByText('Project Settings')).toBeVisible();
+    await expect(page.getByLabel('Timeline Canvas Preview')).toBeVisible();
+    await expect(page.getByLabel('Image Track', { exact: true })).toBeVisible();
 
     // Capture Editor View Screenshot
     await page.screenshot({ path: 'test-results/m0-editor.png' });

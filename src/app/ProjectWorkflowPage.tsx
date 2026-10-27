@@ -13,6 +13,7 @@ import { EditorPage } from '../features/editor/EditorPage';
 import { SettingsModal } from '../features/settings';
 import { ParseResult } from '../core/parser/types';
 import { parseScript } from '../core/parser/registry';
+import { useTimelineStore } from '../core/timeline';
 import { ProjectWorkflowHeader } from './ProjectWorkflowHeader';
 
 export type WorkflowStep = 'ingest' | 'review' | 'timeline' | 'export';
@@ -63,6 +64,7 @@ export const ProjectWorkflowPage: React.FC = () => {
         const proj = valid.data;
         if (!cancelled) {
           setProject(proj);
+          useTimelineStore.getState().setProject(proj);
           // Determine initial step
           if (proj.timeline.clips.length === 0 && proj.assets.length === 0) {
             setActiveStep('ingest');
@@ -184,14 +186,28 @@ export const ProjectWorkflowPage: React.FC = () => {
     };
     await db.projects.put(updatedProj);
     setProject(updatedProj);
+    useTimelineStore.getState().setProject(updatedProj);
     setActiveStep('timeline');
   };
 
   const totalAudioMs = ingestedAudio.reduce((sum, a) => sum + (a.durationMs || 0), 0);
 
+  if (activeStep === 'timeline') {
+    return (
+      <div className="flex flex-col h-full bg-canvas text-text-primary">
+        <EditorPage
+          onNavigateStep={setActiveStep}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onExport={() => alert('Video export pipeline (Mediabunny MP4) will be enabled in Milestone 4!')}
+        />
+        <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full bg-canvas text-text-primary">
-      {/* Workflow Navigation Header */}
+      {/* Workflow Navigation Header for Ingest and Script Review */}
       <ProjectWorkflowHeader
         projectName={project?.name || projectId}
         activeStep={activeStep}
@@ -218,20 +234,23 @@ export const ProjectWorkflowPage: React.FC = () => {
             projectId={projectId}
             rawScript={rawScript}
             initialParseResult={parseResult}
-            assets={ingestedImages.map((img) => ({
-              id: img.id,
-              name: img.name,
-              kind: 'image' as const,
-              thumbnailUrl: img.thumbnailUrl,
-            }))}
+            assets={[
+              ...ingestedImages.map((img) => ({
+                id: img.id,
+                name: img.name,
+                kind: 'image' as const,
+                thumbnailUrl: img.thumbnailUrl,
+              })),
+              ...ingestedAudio.map((aud) => ({
+                id: aud.id,
+                name: aud.name,
+                kind: 'audio' as const,
+              })),
+            ]}
             totalAudioMs={totalAudioMs}
             onBackToIngest={() => setActiveStep('ingest')}
             onAcceptTimeline={handleAcceptTimeline}
           />
-        )}
-
-        {activeStep === 'timeline' && (
-          <EditorPage />
         )}
       </main>
 
