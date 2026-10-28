@@ -25,7 +25,8 @@ export const AssetMetaSchema = z.object({
   width: z.number().int().positive().optional(),
   height: z.number().int().positive().optional(),
   durationMs: z.number().int().nonnegative().optional(),
-});
+  thumbnailDataUrl: z.string().optional(),
+}).passthrough();
 
 export const AssetSchema = z.object({
   id: z.string().min(1),

@@ -1,5 +1,6 @@
 import { pipeline } from '@huggingface/transformers';
 import { SyncWorkerRequest, SyncWorkerResponse, WhisperWord } from './types';
+import { resampleTo16k } from './resampler';
 
 let isCancelled = false;
 
@@ -20,7 +21,10 @@ workerScope.onmessage = async (e: MessageEvent<SyncWorkerRequest>) => {
 
   if (msg.type === 'START') {
     isCancelled = false;
-    const { audioData, forceWasm } = msg;
+    const { audioData, sampleRate, forceWasm } = msg;
+    const finalAudioData = sampleRate && sampleRate !== 16000
+      ? resampleTo16k(audioData, sampleRate)
+      : audioData;
 
     try {
       workerScope.postMessage({
@@ -86,7 +90,7 @@ workerScope.onmessage = async (e: MessageEvent<SyncWorkerRequest>) => {
 
       // 2. Transcribe Audio
       // Guard: chunk_length_s MUST be 29 (never 30) to avoid ONNX timestamp collapse
-      const output = await transcriber(audioData, {
+      const output = await transcriber(finalAudioData, {
         return_timestamps: 'word',
         chunk_length_s: 29,
       });

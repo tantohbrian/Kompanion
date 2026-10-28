@@ -3,6 +3,7 @@ import { Project } from '../model/types';
 import { resolveTimeline } from './resolveTimeline';
 import { calculateAnimationTransform } from './animations';
 import { calculateTransitionBlend } from './transitions';
+import { ImageBitmapLruCache } from './imageCache';
 import { DEFAULT_PROJECT_DEFAULTS } from '../storage/storage';
 
 const mockProject: Project = {
@@ -123,5 +124,30 @@ describe('Render Engine & resolveTimeline', () => {
     const blendAfter = calculateTransitionBlend(transition, 3050, clipStartMs);
     expect(blendAfter.isTransitioning).toBe(false);
     expect(blendAfter.incomingAlpha).toBe(1.0);
+  });
+});
+
+describe('ImageBitmapLruCache Resolution Fallback', () => {
+  it('returns cached 1280 proxy bitmap when 1920 is queried', () => {
+    const cache = new ImageBitmapLruCache(10);
+    const mockBitmap = {
+      width: 1280,
+      height: 720,
+      close: () => {},
+    } as unknown as ImageBitmap;
+
+    // Cache bitmap under 1280 proxy resolution
+    cache.setBitmap('asset-42', 1280, mockBitmap);
+
+    // Exact query matches
+    expect(cache.getBitmap('asset-42', 1280)).toBe(mockBitmap);
+
+    // Fallback: 1920 query returns the cached 1280 proxy bitmap
+    expect(cache.getBitmap('asset-42', 1920)).toBe(mockBitmap);
+    expect(cache.hasBitmap('asset-42', 1920, false)).toBe(true);
+
+    // Missing asset returns null
+    expect(cache.getBitmap('asset-missing', 1920)).toBeNull();
+    expect(cache.hasBitmap('asset-missing', 1920)).toBe(false);
   });
 });

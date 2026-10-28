@@ -1,5 +1,6 @@
 import { WaveformWorkerRequest, WaveformWorkerResponse } from './types';
 import { computeWaveformPeaks, WaveformPeaks } from './waveform';
+import { resampleTo16k } from '../sync/resampler';
 
 let workerInstance: Worker | null = null;
 let requestId = 0;
@@ -72,6 +73,38 @@ export async function generateWaveform(
 }
 
 /**
+ * Resamples an AudioBuffer to 16,000 Hz mono for Whisper transcription.
+ * Uses OfflineAudioContext in browsers with linear resampler fallback.
+ */
+export async function resampleAudioBufferTo16k(audioBuffer: AudioBuffer): Promise<Float32Array> {
+  const targetSampleRate = 16000;
+  if (audioBuffer.sampleRate === targetSampleRate) {
+    return audioBuffer.getChannelData(0);
+  }
+
+  const OfflineAudioCtx = typeof window !== 'undefined'
+    ? (window.OfflineAudioContext || (window as unknown as { webkitOfflineAudioContext: typeof OfflineAudioContext }).webkitOfflineAudioContext)
+    : undefined;
+
+  if (OfflineAudioCtx) {
+    try {
+      const targetLength = Math.max(1, Math.ceil(audioBuffer.duration * targetSampleRate));
+      const offlineCtx = new OfflineAudioCtx(1, targetLength, targetSampleRate);
+      const source = offlineCtx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(offlineCtx.destination);
+      source.start(0);
+      const rendered = await offlineCtx.startRendering();
+      return rendered.getChannelData(0);
+    } catch {
+      // Fallback to pure TS linear resampler
+    }
+  }
+
+  return resampleTo16k(audioBuffer.getChannelData(0), audioBuffer.sampleRate);
+}
+
+/**
  * Decodes an audio file or blob using the Web Audio API AudioContext.
  * Returns duration in integer milliseconds and the primary channel data.
  */
@@ -102,3 +135,4 @@ export async function decodeAudioBuffer(blob: Blob): Promise<{
     ctx.close().catch(() => {});
   }
 }
+

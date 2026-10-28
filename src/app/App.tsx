@@ -8,13 +8,16 @@ import { useTheme } from './theme';
 import { AppRoutes } from './routes';
 import { ToastProvider, TooltipProvider, IconButton } from '../ui';
 import { SettingsModal } from '../features/settings/SettingsModal';
-import { purgeExpiredDeletedProjects } from '../core/storage/storage';
+import { purgeExpiredDeletedProjects, requestPersistentStorage } from '../core/storage/storage';
 
 export const App: React.FC = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { theme, setTheme } = useTheme();
 
   useEffect(() => {
+    // Silently request persistent storage so IndexedDB and OPFS survive power loss
+    requestPersistentStorage().catch(() => {});
+
     // Purge any soft-deleted projects that expired while app was closed
     purgeExpiredDeletedProjects(10000).catch((err) => {
       console.warn('Failed to purge expired projects on boot:', err);

@@ -22,6 +22,8 @@ export const AudioTrack: React.FC<AudioTrackProps> = ({ pxPerMs }) => {
   const audioAsset = firstAudio ? project.assets.find((a) => a.id === firstAudio.assetId) : null;
   const durationMs = audioAsset?.meta.durationMs || 0;
   const trackWidthPx = Math.max(100, Math.round(durationMs * pxPerMs));
+  // Hardware safeguard: cap physical backing width to 8192px to prevent canvas context allocation crash
+  const canvasWidth = Math.min(8192, Math.max(100, trackWidthPx));
 
   // Draw cached waveform peaks on canvas
   useEffect(() => {
@@ -48,7 +50,7 @@ export const AudioTrack: React.FC<AudioTrackProps> = ({ pxPerMs }) => {
       const x = i * 3;
       ctx.fillRect(x, midY - amp, 2, amp * 2);
     }
-  }, [firstAudio, muted, trackWidthPx]);
+  }, [firstAudio, muted, canvasWidth]);
 
   const handleToggleMute = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -84,7 +86,7 @@ export const AudioTrack: React.FC<AudioTrackProps> = ({ pxPerMs }) => {
       >
         <canvas
           ref={canvasRef}
-          width={trackWidthPx}
+          width={canvasWidth}
           height={48}
           className="absolute inset-0 w-full h-full block"
         />

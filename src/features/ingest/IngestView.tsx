@@ -15,6 +15,9 @@ interface IngestViewProps {
   initialAudio?: IngestedAudio[];
   initialRawScript?: string;
   initialParseResult?: ParseResult | null;
+  onImagesChange?: (images: IngestedImage[]) => void;
+  onAudioChange?: (audio: IngestedAudio[]) => void;
+  onScriptChange?: (raw: string, parse: ParseResult) => void;
   onProceedToReview: (payload: {
     images: IngestedImage[];
     audio: IngestedAudio[];
@@ -29,6 +32,9 @@ export const IngestView: React.FC<IngestViewProps> = ({
   initialAudio = [],
   initialRawScript = '',
   initialParseResult = null,
+  onImagesChange,
+  onAudioChange,
+  onScriptChange,
   onProceedToReview,
 }) => {
   const [images, setImages] = useState<IngestedImage[]>(initialImages);
@@ -38,23 +44,35 @@ export const IngestView: React.FC<IngestViewProps> = ({
 
   const totalAudioMs = audioFiles.reduce((sum, a) => sum + (a.durationMs || 0), 0);
 
+  const handleImagesUpdate = (newImgs: IngestedImage[]) => {
+    setImages(newImgs);
+    onImagesChange?.(newImgs);
+  };
+
+  const handleAudioUpdate = (newAud: IngestedAudio[]) => {
+    setAudioFiles(newAud);
+    onAudioChange?.(newAud);
+  };
+
   const handleScriptChange = (raw: string, parse: ParseResult) => {
     setRawScript(raw);
     setParseResult(parse);
+    onScriptChange?.(raw, parse);
   };
 
   const handleFixRemoveCorrupt = () => {
-    setImages((prev) => prev.filter((img) => !img.isCorrupt).map((img, idx) => ({ ...img, order: idx + 1 })));
-    setAudioFiles((prev) => prev.filter((aud) => !aud.isCorrupt));
+    const cleanImgs = images.filter((img) => !img.isCorrupt).map((img, idx) => ({ ...img, order: idx + 1 }));
+    const cleanAud = audioFiles.filter((aud) => !aud.isCorrupt);
+    handleImagesUpdate(cleanImgs);
+    handleAudioUpdate(cleanAud);
   };
 
   const handleFixExtendLastClip = (audioDurationMs: number) => {
     if (!parseResult) return;
     const updated = extendLastSegmentTo(parseResult.segments, audioDurationMs);
-    setParseResult({
-      ...parseResult,
-      segments: updated,
-    });
+    const newParse = { ...parseResult, segments: updated };
+    setParseResult(newParse);
+    onScriptChange?.(rawScript, newParse);
   };
 
   const handleFixDeduplicateNames = () => {
@@ -73,7 +91,7 @@ export const IngestView: React.FC<IngestViewProps> = ({
         name: `${base} (${count + 1})${ext}`,
       };
     });
-    setImages(updated);
+    handleImagesUpdate(updated);
   };
 
   const canProceed = parseResult && parseResult.segments.length > 0;
@@ -130,7 +148,7 @@ export const IngestView: React.FC<IngestViewProps> = ({
           <ImageDropzone
             projectId={projectId}
             images={images}
-            onImagesChange={setImages}
+            onImagesChange={handleImagesUpdate}
           />
         </section>
 
@@ -139,7 +157,7 @@ export const IngestView: React.FC<IngestViewProps> = ({
           <AudioDropzone
             projectId={projectId}
             audioFiles={audioFiles}
-            onAudioChange={setAudioFiles}
+            onAudioChange={handleAudioUpdate}
           />
         </section>
 

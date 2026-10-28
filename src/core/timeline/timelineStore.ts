@@ -75,7 +75,7 @@ export const useTimelineStore = create<TimelineState>()(
       selectedClipId: null,
       playheadMs: 0,
       isPlaying: false,
-      zoom: 120, // 120px per second default
+      zoom: 1.0, // multiplier scale 0.1 to 5.0 (1.0 = 100%)
       snap: true,
       isDragging: false,
       autosaveStatus: 'saved',
@@ -102,7 +102,7 @@ export const useTimelineStore = create<TimelineState>()(
       },
 
       setZoom: (zoom) => {
-        const clamped = Math.max(30, Math.min(500, Math.round(zoom)));
+        const clamped = Math.max(0.1, Math.min(5.0, Number(zoom.toFixed(2))));
         set({ zoom: clamped });
       },
 

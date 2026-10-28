@@ -13,19 +13,37 @@ export class ImageBitmapLruCache implements RenderCache {
     return `${assetId}:${resolution}`;
   }
 
-  getBitmap(assetId: string, resolution = 1280): ImageBitmap | null {
+  getBitmap(assetId: string, resolution = 1280, exact = false): ImageBitmap | null {
     const key = this.makeKey(assetId, resolution);
     const item = this.cache.get(key);
-    if (!item) return null;
+    if (item) {
+      // Refresh LRU position (delete and re-insert)
+      this.cache.delete(key);
+      this.cache.set(key, item);
+      return item;
+    }
 
-    // Refresh LRU position (delete and re-insert)
-    this.cache.delete(key);
-    this.cache.set(key, item);
-    return item;
+    if (exact) return null;
+
+    // Resolution fallback: return any cached bitmap for this assetId (e.g. 1280 proxy during 1920 preview)
+    const prefix = `${assetId}:`;
+    for (const [k, fallbackItem] of this.cache.entries()) {
+      if (k.startsWith(prefix)) {
+        return fallbackItem;
+      }
+    }
+
+    return null;
   }
 
-  hasBitmap(assetId: string, resolution = 1280): boolean {
-    return this.cache.has(this.makeKey(assetId, resolution));
+  hasBitmap(assetId: string, resolution = 1280, exact = true): boolean {
+    if (this.cache.has(this.makeKey(assetId, resolution))) return true;
+    if (exact) return false;
+    const prefix = `${assetId}:`;
+    for (const k of this.cache.keys()) {
+      if (k.startsWith(prefix)) return true;
+    }
+    return false;
   }
 
   setBitmap(assetId: string, resolution: number, bitmap: ImageBitmap): void {

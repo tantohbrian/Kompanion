@@ -1,6 +1,40 @@
 import React from 'react';
 import { Image as ImageIcon, Music } from 'lucide-react';
 import { useTimelineStore } from '../../core/timeline';
+import { Asset } from '../../core/model/types';
+import { useAssetThumbnailUrl } from './useAssetThumbnailUrl';
+
+const MediaImageCard: React.FC<{
+  asset: Asset;
+  isSelectedClip: boolean;
+  onClick: () => void;
+}> = ({ asset, isSelectedClip, onClick }) => {
+  const thumbUrl = useAssetThumbnailUrl(asset);
+
+  return (
+    <div
+      onClick={onClick}
+      className="group relative bg-surface-elevated/40 hover:bg-surface-elevated border border-border-subtle hover:border-accent rounded-control p-2 cursor-pointer transition-colors flex flex-col gap-1.5"
+      title={isSelectedClip ? 'Click to replace selected clip image' : asset.name}
+    >
+      <div className="aspect-video bg-black rounded flex items-center justify-center text-text-tertiary font-mono text-[10px] overflow-hidden relative">
+        {thumbUrl ? (
+          <img
+            src={thumbUrl}
+            alt={asset.name}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <span className="truncate px-1">{asset.name.slice(0, 10)}</span>
+        )}
+      </div>
+      <span className="truncate text-text-primary text-[11px] font-medium">
+        {asset.name}
+      </span>
+    </div>
+  );
+};
 
 export const MediaPanel: React.FC = () => {
   const project = useTimelineStore((s) => s.project);
@@ -36,19 +70,12 @@ export const MediaPanel: React.FC = () => {
         ) : (
           <div className="grid grid-cols-2 gap-2">
             {imageAssets.map((asset) => (
-              <div
+              <MediaImageCard
                 key={asset.id}
+                asset={asset}
+                isSelectedClip={Boolean(selectedClipId)}
                 onClick={() => handleAssetClick(asset.id)}
-                className="group relative bg-surface-elevated/40 hover:bg-surface-elevated border border-border-subtle hover:border-accent rounded-control p-2 cursor-pointer transition-colors flex flex-col gap-1.5"
-                title={selectedClipId ? 'Click to replace selected clip image' : asset.name}
-              >
-                <div className="aspect-video bg-black rounded flex items-center justify-center text-text-tertiary font-mono text-[10px] overflow-hidden">
-                  {asset.name.slice(0, 10)}
-                </div>
-                <span className="truncate text-text-primary text-[11px] font-medium">
-                  {asset.name}
-                </span>
-              </div>
+              />
             ))}
           </div>
         )}

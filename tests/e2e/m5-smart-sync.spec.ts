@@ -149,7 +149,7 @@ Detailed vector close-up of a basketball hoop.`;
     await page.getByRole('button', { name: /proceed to script review/i }).first().click();
 
     // 2. Open Smart Sync Modal
-    await page.getByRole('button', { name: /smart sync/i }).click();
+    await page.getByRole('button', { name: /smart sync/i }).first().click();
     const modal = page.locator('div[role="dialog"]');
     await expect(modal).toBeVisible();
 

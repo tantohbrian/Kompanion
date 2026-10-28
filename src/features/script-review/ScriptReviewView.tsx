@@ -10,12 +10,14 @@ import { autoFixOverlaps, autoCloseGaps, extendLastSegmentTo } from '../../core/
 import { SmartSyncModal } from './SmartSyncModal';
 import { SmartSyncErrorBoundary } from './SmartSyncErrorBoundary';
 import { AlignedSegmentDiff } from '../../core/sync/types';
+import { checkScriptHasNarration } from '../../core/sync/aligner';
 
 interface ScriptReviewViewProps {
   projectId: string;
   rawScript: string;
   initialParseResult: ParseResult;
   assets: { id: string; name: string; kind: 'image' | 'audio'; thumbnailUrl?: string }[];
+  audioBlob?: Blob | null;
   totalAudioMs?: number;
   onBackToIngest: () => void;
   onAcceptTimeline: (timeline: { clips: Clip[]; audio: AudioClip[] }) => void;
@@ -25,6 +27,7 @@ export const ScriptReviewView: React.FC<ScriptReviewViewProps> = ({
   rawScript,
   initialParseResult,
   assets,
+  audioBlob,
   totalAudioMs = 0,
   onBackToIngest,
   onAcceptTimeline,
@@ -33,10 +36,12 @@ export const ScriptReviewView: React.FC<ScriptReviewViewProps> = ({
   const [selectedStrategy, setSelectedStrategy] = useState<string>(initialParseResult.strategyName);
   const [segments, setSegments] = useState<ParsedSegment[]>(initialParseResult.segments);
   const [isSmartSyncOpen, setIsSmartSyncOpen] = useState(false);
+  const [hasSynced, setHasSynced] = useState(false);
 
   const imageAssets = assets.filter((a) => a.kind === 'image');
   const audioAssets = assets.filter((a) => a.kind === 'audio');
   const registeredStrategies = getRegisteredParsers();
+  const hasAudioAndNarration = audioAssets.length > 0 && checkScriptHasNarration(segments);
 
   const handleStrategyChange = (newStrategy: string) => {
     setSelectedStrategy(newStrategy);
@@ -57,19 +62,6 @@ export const ScriptReviewView: React.FC<ScriptReviewViewProps> = ({
     );
   };
 
-  // Mismatch Resolver Handlers
-  const handleAssign = () => {
-    // Already mapped by index order
-  };
-
-  const handleSkip = () => {
-    setSegments((prev) => prev.slice(0, imageAssets.length));
-  };
-
-  const handlePlaceholder = () => {
-    // Unmapped beats will render with placeholder glyphs
-  };
-
   const handleExtendLast = () => {
     if (totalAudioMs > 0) {
       setSegments((prev) => extendLastSegmentTo(prev, totalAudioMs));
@@ -85,6 +77,7 @@ export const ScriptReviewView: React.FC<ScriptReviewViewProps> = ({
   };
 
   const handleApplyAlignment = (diffs: AlignedSegmentDiff[]) => {
+    setHasSynced(true);
     const diffMap = new Map(diffs.map((d) => [d.index, d]));
     setSegments((prev) => {
       let currentStart = 0;
@@ -105,23 +98,17 @@ export const ScriptReviewView: React.FC<ScriptReviewViewProps> = ({
     });
   };
 
-  // Acceptance & Timeline Assembly
   const handleAccept = () => {
-    // Auto-fix any residual overlaps and close micro-gaps before building timeline
     const sanitized = autoCloseGaps(autoFixOverlaps(segments));
-
-    const clips: Clip[] = sanitized.map((seg, idx) => {
-      const mappedImg = imageAssets[idx];
-      return {
-        id: `clip-${seg.index}`,
-        assetId: mappedImg ? mappedImg.id : '',
-        durationMs: Math.max(500, seg.endMs - seg.startMs),
-        fit: 'cover',
-        animation: 'inherit',
-        transitionIn: 'inherit',
-        sourceSegment: seg.index,
-      };
-    });
+    const clips: Clip[] = sanitized.map((seg, idx) => ({
+      id: `clip-${seg.index}`,
+      assetId: imageAssets[idx]?.id || imageAssets[0]?.id || `asset-placeholder-${seg.index}`,
+      durationMs: Math.max(500, seg.endMs - seg.startMs),
+      fit: 'cover',
+      animation: 'inherit',
+      transitionIn: 'inherit',
+      sourceSegment: seg.index,
+    }));
 
     const audioClips: AudioClip[] = audioAssets.map((aud) => ({
       id: `audio-${aud.id}`,
@@ -132,26 +119,18 @@ export const ScriptReviewView: React.FC<ScriptReviewViewProps> = ({
     onAcceptTimeline({ clips, audio: audioClips });
   };
 
-  const mappedAssets: MappedAsset[] = segments.map((_, idx) => {
-    const asset = imageAssets[idx];
-    return {
-      id: asset?.id || `placeholder-${idx + 1}`,
-      name: asset?.name || `Placeholder Image ${idx + 1}`,
-      thumbnailUrl: asset?.thumbnailUrl,
-    };
-  });
+  const mappedAssets: MappedAsset[] = segments.map((_, idx) => ({
+    id: imageAssets[idx]?.id || `placeholder-${idx + 1}`,
+    name: imageAssets[idx]?.name || `Placeholder Image ${idx + 1}`,
+    thumbnailUrl: imageAssets[idx]?.thumbnailUrl,
+  }));
 
   return (
     <div className="max-w-6xl mx-auto py-6 px-4 space-y-6">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
         <div className="flex items-center gap-3">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={onBackToIngest}
-            aria-label="Back to Ingest"
-          >
+          <Button variant="secondary" size="sm" onClick={onBackToIngest} aria-label="Back to Ingest">
             <ArrowLeft className="w-3.5 h-3.5 mr-1" />
             Ingest
           </Button>
@@ -167,7 +146,6 @@ export const ScriptReviewView: React.FC<ScriptReviewViewProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Smart Sync Trigger Button */}
           <Button
             variant="secondary"
             size="sm"
@@ -178,7 +156,6 @@ export const ScriptReviewView: React.FC<ScriptReviewViewProps> = ({
             Smart Sync
           </Button>
 
-          {/* Strategy Selector */}
           <div className="flex items-center gap-2 text-xs">
             <span className="text-text-secondary whitespace-nowrap">Strategy:</span>
             <select
@@ -188,24 +165,57 @@ export const ScriptReviewView: React.FC<ScriptReviewViewProps> = ({
               aria-label="Parser Strategy Selector"
             >
               {registeredStrategies.map((strat) => (
-                <option key={strat.name} value={strat.name}>
-                  {strat.label}
-                </option>
+                <option key={strat.name} value={strat.name}>{strat.label}</option>
               ))}
             </select>
           </div>
 
-          <Button
-            variant="primary"
-            size="md"
-            onClick={handleAccept}
-            aria-label="Accept and Build Timeline"
-          >
+          {!hasSynced && hasAudioAndNarration && (
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => setIsSmartSyncOpen(true)}
+              title="Snap image cuts to audio words before building timeline"
+            >
+              <Wand2 className="w-3.5 h-3.5 mr-1 text-accent" />
+              Sync to Audio First
+            </Button>
+          )}
+
+          <Button variant="primary" size="md" onClick={handleAccept} aria-label="Accept and Build Timeline">
             <Check className="w-4 h-4 mr-1.5" />
             Accept Timeline
           </Button>
         </div>
       </div>
+
+      {/* Prominent Smart Sync Callout Banner */}
+      {!hasSynced && hasAudioAndNarration && (
+        <div className="p-4 rounded-panel bg-accent/15 border border-accent/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs animate-in fade-in duration-200">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-accent/20 border border-accent/40 flex items-center justify-center text-accent shrink-0">
+              <Wand2 className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="font-semibold text-text-primary block text-sm">
+                Voiceover audio & spoken script segments detected
+              </span>
+              <p className="text-text-secondary text-2xs mt-0.5 leading-relaxed">
+                Run Smart Sync to snap image cuts to the exact spoken words instead of estimated script timestamps.
+              </p>
+            </div>
+          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => setIsSmartSyncOpen(true)}
+            className="shrink-0 font-semibold"
+          >
+            <Wand2 className="w-3.5 h-3.5 mr-1.5" />
+            Sync Cuts to Audio (Smart Sync)
+          </Button>
+        </div>
+      )}
 
       {/* Diagnostics / Warnings */}
       {parseResult.diagnostics.length > 0 && (
@@ -227,9 +237,9 @@ export const ScriptReviewView: React.FC<ScriptReviewViewProps> = ({
         imageCount={imageAssets.length}
         segmentCount={segments.length}
         totalAudioMs={totalAudioMs}
-        onAssign={handleAssign}
-        onSkip={handleSkip}
-        onPlaceholder={handlePlaceholder}
+        onAssign={() => {}}
+        onSkip={() => setSegments((prev) => prev.slice(0, imageAssets.length))}
+        onPlaceholder={() => {}}
         onExtendLast={handleExtendLast}
       />
 
@@ -243,25 +253,29 @@ export const ScriptReviewView: React.FC<ScriptReviewViewProps> = ({
 
       {/* Footer Actions */}
       <div className="flex items-center justify-between pt-4 border-t border-border">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={onBackToIngest}
-          aria-label="Back to Ingest"
-        >
+        <Button variant="secondary" size="sm" onClick={onBackToIngest} aria-label="Back to Ingest">
           <ArrowLeft className="w-3.5 h-3.5 mr-1" />
           Back to Ingest
         </Button>
 
-        <Button
-          variant="primary"
-          size="md"
-          onClick={handleAccept}
-          aria-label="Accept and Build Timeline"
-        >
-          <Check className="w-4 h-4 mr-1.5" />
-          Accept Timeline
-        </Button>
+        <div className="flex items-center gap-3">
+          {!hasSynced && hasAudioAndNarration && (
+            <Button
+              variant="secondary"
+              size="md"
+              onClick={() => setIsSmartSyncOpen(true)}
+              title="Snap image cuts to audio words before building timeline"
+            >
+              <Wand2 className="w-3.5 h-3.5 mr-1 text-accent" />
+              Sync to Audio First
+            </Button>
+          )}
+
+          <Button variant="primary" size="md" onClick={handleAccept} aria-label="Accept and Build Timeline">
+            <Check className="w-4 h-4 mr-1.5" />
+            Accept Timeline
+          </Button>
+        </div>
       </div>
 
       <SmartSyncErrorBoundary onReset={() => setIsSmartSyncOpen(false)}>
@@ -269,6 +283,7 @@ export const ScriptReviewView: React.FC<ScriptReviewViewProps> = ({
           isOpen={isSmartSyncOpen}
           onClose={() => setIsSmartSyncOpen(false)}
           segments={segments}
+          audioBlobOrBuffer={audioBlob}
           thumbnails={Object.fromEntries(
             mappedAssets.map((m, idx) => [idx + 1, m.thumbnailUrl || ''])
           )}

@@ -83,6 +83,13 @@ body,
   outline-offset: 2px;
 }
 
+/* Form controls dark mode baseline */
+textarea,
+input,
+select {
+  color-scheme: dark;
+}
+
 /* Accessibility: respect prefers-reduced-motion */
 @media (prefers-reduced-motion: reduce) {
   *,

@@ -1,7 +1,7 @@
 export interface IngestedImage {
   id: string;
   name: string;
-  file: File;
+  file?: File;
   storageKey: string;
   order: number;
   width?: number;
@@ -15,7 +15,7 @@ export interface IngestedImage {
 export interface IngestedAudio {
   id: string;
   name: string;
-  file: File;
+  file?: File;
   storageKey: string;
   durationMs: number; // integer milliseconds
   bytes: number;

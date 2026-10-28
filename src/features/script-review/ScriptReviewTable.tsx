@@ -144,7 +144,12 @@ export const ScriptReviewTable: React.FC<ScriptReviewTableProps> = ({
                           type="text"
                           value={seg.narrationText}
                           onChange={(e) => onUpdateSegment(seg.index, { narrationText: e.target.value })}
-                          className="flex-1 bg-transparent border-b border-transparent hover:border-border focus:border-accent text-xs text-text-secondary focus:outline-none py-0.5"
+                          className="flex-1 bg-surface-elevated text-text-primary border-b border-transparent hover:border-border focus:border-accent text-xs focus:outline-none py-0.5 px-1 rounded-sm"
+                          style={{
+                            backgroundColor: 'var(--color-surface-elevated)',
+                            color: 'var(--color-text-primary)',
+                            colorScheme: 'dark',
+                          }}
                           placeholder="Narration text..."
                           aria-label={`Narration for beat ${seg.index}`}
                         />
@@ -154,7 +159,12 @@ export const ScriptReviewTable: React.FC<ScriptReviewTableProps> = ({
                       value={seg.promptText}
                       onChange={(e) => onUpdateSegment(seg.index, { promptText: e.target.value })}
                       rows={2}
-                      className="w-full bg-surface-elevated/60 border border-border-subtle hover:border-border focus:border-accent rounded p-1.5 text-xs text-text-primary focus:outline-none resize-y"
+                      className="w-full bg-surface-elevated text-text-primary border border-border-subtle hover:border-border focus:border-accent rounded p-1.5 text-xs focus:outline-none resize-y"
+                      style={{
+                        backgroundColor: 'var(--color-surface-elevated)',
+                        color: 'var(--color-text-primary)',
+                        colorScheme: 'dark',
+                      }}
                       placeholder="Image prompt description..."
                       aria-label={`Prompt text for beat ${seg.index}`}
                     />

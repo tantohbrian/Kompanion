@@ -80,4 +80,21 @@ describe('Workspace Store (M1)', () => {
     expect(state.workspaces.some((w) => w.id === ws.id)).toBe(false);
     expect(state.activeWorkspaceId).toBe('default');
   });
+
+  it('persists activeWorkspaceId to localStorage and restores it across reloads', async () => {
+    const store = useWorkspaceStore.getState();
+    await store.fetchWorkspaces();
+    const ws = await store.createWorkspace('Persistent Channel', '#34C759');
+
+    expect(localStorage.getItem('kompanion:activeWorkspaceId')).toBe(ws.id);
+
+    // Simulate page reload by clearing in-memory store state
+    useWorkspaceStore.setState({
+      workspaces: [],
+      activeWorkspaceId: 'default',
+    });
+
+    await useWorkspaceStore.getState().fetchWorkspaces();
+    expect(useWorkspaceStore.getState().activeWorkspaceId).toBe(ws.id);
+  });
 });

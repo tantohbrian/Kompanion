@@ -27,7 +27,7 @@ export function formatTimecode(ms: number, fps = 30): string {
   const ss = String(seconds).padStart(2, '0');
   const ff = String(frames).padStart(2, '0');
 
-  return `${mm}:${ss}:${ff}`;
+  return `${mm}:${ss}.${ff}`;
 }
 
 /**

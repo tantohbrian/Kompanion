@@ -13,6 +13,7 @@ import {
   AlignmentResult,
 } from '../../core/sync/types';
 import { checkScriptHasNarration, alignSegmentsToWords } from '../../core/sync/aligner';
+import { resampleAudioBufferTo16k } from '../../core/audio';
 import { WhisperClient } from '../../core/sync/whisperClient';
 import { SyncDiffTable } from './SyncDiffTable';
 import { SmartSyncConsentView } from './SmartSyncConsentView';
@@ -69,20 +70,18 @@ export const SmartSyncModal: React.FC<SmartSyncModalProps> = ({
 
       // Extract raw audio data
       let channelData: Float32Array;
-      let sampleRate = 16000;
+      const sampleRate = 16000;
 
       if (audioBlobOrBuffer instanceof AudioBuffer) {
-        channelData = audioBlobOrBuffer.getChannelData(0);
-        sampleRate = audioBlobOrBuffer.sampleRate;
+        channelData = await resampleAudioBufferTo16k(audioBlobOrBuffer);
       } else if (audioBlobOrBuffer instanceof Blob) {
         const arrayBuf = await audioBlobOrBuffer.arrayBuffer();
-        const audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+        const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        const audioCtx = new AudioCtx();
         const decoded = await audioCtx.decodeAudioData(arrayBuf);
-        channelData = decoded.getChannelData(0);
-        sampleRate = decoded.sampleRate;
-        await audioCtx.close();
+        channelData = await resampleAudioBufferTo16k(decoded);
+        await audioCtx.close().catch(() => {});
       } else {
-        // Fallback synthetic mono buffer if audio missing in mock/preview
         channelData = new Float32Array(16000);
       }
 

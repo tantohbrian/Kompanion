@@ -22,22 +22,33 @@ export const CanvasPreview: React.FC = () => {
     };
   }, []);
 
-  // Background asset prefetching on time changes
+  // Background asset prefetching on time changes & immediate redraw on decode
   useEffect(() => {
-    if (!project) return;
+    if (!project || project.timeline.clips.length === 0) return;
+
+    const getStorageKey = (assetId: string) =>
+      project.assets.find((a) => a.id === assetId)?.storageKey;
+
+    let currentStart = 0;
+    const spans = project.timeline.clips.map((c) => {
+      const start = currentStart;
+      currentStart += c.durationMs;
+      return { assetId: c.assetId, startMs: start, endMs: currentStart };
+    });
+
+    const triggerPrefetch = (tMs: number) => {
+      void prefetchClips(spans, tMs, getStorageKey, undefined, 5).then((prefetched) => {
+        if (prefetched.length > 0) {
+          playerController.renderCurrentFrame(tMs);
+        }
+      });
+    };
+
+    // Prefetch for current playhead on project load
+    triggerPrefetch(useTimelineStore.getState().playheadMs);
+
     const unsubscribe = playerController.subscribeTime((tMs) => {
-      if (project.timeline.clips.length > 0) {
-        const getStorageKey = (assetId: string) =>
-          project.assets.find((a) => a.id === assetId)?.storageKey;
-        // Construct basic clip span list
-        let currentStart = 0;
-        const spans = project.timeline.clips.map((c) => {
-          const start = currentStart;
-          currentStart += c.durationMs;
-          return { assetId: c.assetId, startMs: start, endMs: currentStart };
-        });
-        void prefetchClips(spans, tMs, getStorageKey, undefined, 5);
-      }
+      triggerPrefetch(tMs);
     });
 
     return () => {

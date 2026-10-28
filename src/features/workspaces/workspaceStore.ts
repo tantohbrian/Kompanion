@@ -40,9 +40,18 @@ export const WORKSPACE_COLOR_SWATCHES = [
   '#8E8E93', // Apple Neutral Gray
 ] as const;
 
+const STORAGE_KEY_ACTIVE_WS = 'kompanion:activeWorkspaceId';
+
+function getInitialActiveWorkspaceId(): string {
+  if (typeof localStorage !== 'undefined') {
+    return localStorage.getItem(STORAGE_KEY_ACTIVE_WS) || DEFAULT_WORKSPACE_ID;
+  }
+  return DEFAULT_WORKSPACE_ID;
+}
+
 export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   workspaces: [],
-  activeWorkspaceId: DEFAULT_WORKSPACE_ID,
+  activeWorkspaceId: getInitialActiveWorkspaceId(),
   isLoading: false,
   error: null,
 
@@ -51,9 +60,16 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     try {
       await ensureDefaultWorkspace();
       const list = await loadWorkspaces();
-      const currentActive = get().activeWorkspaceId;
+      const savedActive = typeof localStorage !== 'undefined'
+        ? localStorage.getItem(STORAGE_KEY_ACTIVE_WS)
+        : null;
+      const currentActive = savedActive || get().activeWorkspaceId;
       const activeExists = list.some((w) => w.id === currentActive);
       const newActive = activeExists ? currentActive : (list[0]?.id || DEFAULT_WORKSPACE_ID);
+
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(STORAGE_KEY_ACTIVE_WS, newActive);
+      }
 
       set({
         workspaces: list,
@@ -69,6 +85,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   },
 
   setActiveWorkspace: (id: string) => {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY_ACTIVE_WS, id);
+    }
     set({ activeWorkspaceId: id });
   },
 
@@ -94,6 +113,9 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     };
 
     await saveWorkspace(newWorkspace);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY_ACTIVE_WS, newWorkspace.id);
+    }
     set((state) => ({
       workspaces: [...state.workspaces, newWorkspace],
       activeWorkspaceId: newWorkspace.id,
@@ -122,6 +144,10 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     await deleteWorkspaceFromStorage(id);
     const remaining = get().workspaces.filter((w) => w.id !== id);
     const fallbackActive = remaining[0]?.id || DEFAULT_WORKSPACE_ID;
+
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY_ACTIVE_WS, fallbackActive);
+    }
 
     set({
       workspaces: remaining,

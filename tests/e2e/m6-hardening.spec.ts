@@ -134,6 +134,17 @@ test.describe('M6 Hardening, Error Resilience & Accessibility Suite', () => {
     await page.getByRole('button', { name: /back to projects/i }).click();
     await expect(page).toHaveURL(/.*\/w\/default/);
 
+    // Clean up injected corrupt project so it doesn't pollute subsequent test runs
+    await page.evaluate(async (id) => {
+      // @ts-expect-error indexedDB access
+      const request = indexedDB.open('kompanion-db');
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction(['projects'], 'readwrite');
+        tx.objectStore('projects').delete(id);
+      };
+    }, corruptProjId);
+
     expect(unhandledErrors).toHaveLength(0);
   });
 
@@ -147,6 +158,7 @@ test.describe('M6 Hardening, Error Resilience & Accessibility Suite', () => {
     await page.getByRole('button', { name: /new project/i }).click();
     await page.getByLabel(/project name/i).fill('M6 Autosave & Export Test');
     await page.getByRole('button', { name: /create project/i }).click();
+    await expect(page).toHaveURL(/.*\/p\/proj-.*/);
 
     const imageFiles = [
       { name: 'scene-01.png', mimeType: 'image/png', buffer: TINY_PNG_BUFFER },

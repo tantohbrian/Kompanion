@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useTimelineStore } from './timelineStore';
+import { formatTimecode } from './timecode';
 import { Project } from '../model/types';
 import { DEFAULT_PROJECT_DEFAULTS } from '../storage/storage';
 
@@ -96,5 +97,38 @@ describe('TimelineStore with Zundo History', () => {
     // Undo reverts back to initial 2000ms
     temporal.getState().undo();
     expect(useTimelineStore.getState().project.timeline.clips[0]!.durationMs).toBe(2000);
+  });
+
+  it('clamps zoom scale strictly between 0.1 and 5.0 multiplier', () => {
+    const { setZoom } = useTimelineStore.getState();
+
+    setZoom(10);
+    expect(useTimelineStore.getState().zoom).toBe(5.0);
+
+    setZoom(0.02);
+    expect(useTimelineStore.getState().zoom).toBe(0.1);
+
+    setZoom(1.25);
+    expect(useTimelineStore.getState().zoom).toBe(1.25);
+  });
+
+  it('formats timecode with MM:SS.ff dot separator to prevent hour confusion', () => {
+    // 7 minutes 45 seconds + 5 frames at 30fps = 465167 ms
+    const timecode = formatTimecode(465167, 30);
+    expect(timecode).toBe('07:45.05');
+    expect(timecode.includes('.')).toBe(true);
+    expect(formatTimecode(0, 30)).toBe('00:00.00');
+  });
+
+  it('applies incremental edge trim commands cleanly', () => {
+    const { trimClip } = useTimelineStore.getState();
+
+    // Initial is 2000ms
+    trimClip('clip-1', 150, 'end');
+    expect(useTimelineStore.getState().project.timeline.clips[0]!.durationMs).toBe(2150);
+
+    // Another incremental tick of 100ms
+    trimClip('clip-1', 100, 'end');
+    expect(useTimelineStore.getState().project.timeline.clips[0]!.durationMs).toBe(2250);
   });
 });
