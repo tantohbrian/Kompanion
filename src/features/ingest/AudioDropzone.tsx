@@ -49,6 +49,9 @@ export const AudioDropzone: React.FC<AudioDropzoneProps> = ({
           waveform,
         });
       } catch (err) {
+        const isQuota =
+          err instanceof Error &&
+          (err.name === 'QuotaExceededError' || err.message.toLowerCase().includes('quota'));
         newItems.push({
           id,
           name: file.name,
@@ -57,7 +60,9 @@ export const AudioDropzone: React.FC<AudioDropzoneProps> = ({
           durationMs: 0,
           bytes: file.size,
           isCorrupt: true,
-          error: err instanceof Error ? err.message : 'Corrupt audio file',
+          error: isQuota
+            ? 'Storage quota exceeded. Clean up storage in Settings or free up disk space.'
+            : err instanceof Error ? err.message : 'Corrupt audio file',
         });
       }
     }

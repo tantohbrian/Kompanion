@@ -53,6 +53,9 @@ export const ImageDropzone: React.FC<ImageDropzoneProps> = ({
           thumbnailUrl: thumb.thumbnailUrl,
         });
       } catch (err) {
+        const isQuota =
+          err instanceof Error &&
+          (err.name === 'QuotaExceededError' || err.message.toLowerCase().includes('quota'));
         newItems.push({
           id,
           name: file.name,
@@ -62,7 +65,9 @@ export const ImageDropzone: React.FC<ImageDropzoneProps> = ({
           bytes: file.size,
           thumbnailUrl: '',
           isCorrupt: true,
-          error: err instanceof Error ? err.message : 'Corrupt image',
+          error: isQuota
+            ? 'Storage quota exceeded. Clean up storage in Settings or free up disk space.'
+            : err instanceof Error ? err.message : 'Corrupt image',
         });
       }
     }

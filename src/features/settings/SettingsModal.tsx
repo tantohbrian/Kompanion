@@ -116,10 +116,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </span>
                   {!estimate.isPersistent && (
                     <Button
-                      variant="ghost"
+                      variant="secondary"
                       size="sm"
                       onClick={handleRequestPersist}
-                      className="text-accent hover:text-accent-hover text-xs h-7"
+                      className="text-xs h-7"
                     >
                       <ShieldCheck className="w-3.5 h-3.5 mr-1" />
                       Request Persistent

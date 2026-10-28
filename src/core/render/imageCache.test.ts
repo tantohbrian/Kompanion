@@ -61,6 +61,32 @@ describe('ImageBitmapLruCache', () => {
     expect(b1.close).toHaveBeenCalledTimes(1);
     expect(b2.close).toHaveBeenCalledTimes(1);
   });
+
+  it('bounds memory footprint when loading 100 images by enforcing max 60 active items and closing 40', () => {
+    const cache = new ImageBitmapLruCache(60);
+    const mockBitmaps: ImageBitmap[] = [];
+
+    for (let i = 1; i <= 100; i++) {
+      const b = createMockBitmap(`img-${i}`);
+      mockBitmaps.push(b);
+      cache.setBitmap(`asset-${i}`, 1920, b);
+    }
+
+    // Cache size strictly capped at 60
+    expect(cache.size()).toBe(60);
+
+    // Exactly 40 oldest bitmaps evicted and closed
+    const closedCount = mockBitmaps.filter((b) => (b.close as unknown as { mock: { calls: unknown[] } }).mock.calls.length === 1).length;
+    expect(closedCount).toBe(40);
+
+    // First 40 images evicted
+    expect(cache.hasBitmap('asset-1', 1920)).toBe(false);
+    expect(cache.hasBitmap('asset-40', 1920)).toBe(false);
+
+    // Latest 60 images retained in cache
+    expect(cache.hasBitmap('asset-41', 1920)).toBe(true);
+    expect(cache.hasBitmap('asset-100', 1920)).toBe(true);
+  });
 });
 
 describe('Prefetch window calculation', () => {

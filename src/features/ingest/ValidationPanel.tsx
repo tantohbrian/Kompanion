@@ -31,12 +31,25 @@ export const ValidationPanel: React.FC<ValidationPanelProps> = ({
     onFix?: () => void;
   }[] = [];
 
-  // 1. Corrupt files detection
+  // 1. Corrupt files & quota errors detection
   const corruptImages = images.filter((img) => img.isCorrupt);
   const corruptAudio = audioFiles.filter((aud) => aud.isCorrupt);
   const totalCorrupt = corruptImages.length + corruptAudio.length;
 
-  if (totalCorrupt > 0) {
+  const quotaError =
+    images.find((img) => img.error?.toLowerCase().includes('quota')) ||
+    audioFiles.find((aud) => aud.error?.toLowerCase().includes('quota'));
+
+  if (quotaError) {
+    issues.push({
+      id: 'quota-exceeded',
+      type: 'error',
+      title: 'Storage Quota Exceeded',
+      description: 'Browser storage quota is full. Remove unneeded files or clean up storage in Settings.',
+      actionLabel: 'Remove Failed Files',
+      onFix: onFixRemoveCorrupt,
+    });
+  } else if (totalCorrupt > 0) {
     issues.push({
       id: 'corrupt-files',
       type: 'error',
