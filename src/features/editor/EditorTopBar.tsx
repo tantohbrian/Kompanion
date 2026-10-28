@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Undo2, Redo2, Check, RefreshCw, AlertCircle, Film, Settings } from 'lucide-react';
+import { ArrowLeft, Undo2, Redo2, Check, RefreshCw, AlertCircle, Film, Settings, Wand2 } from 'lucide-react';
 import { Button, IconButton } from '../../ui';
 import { useStore } from 'zustand';
 import { useTimelineStore } from '../../core/timeline';
@@ -11,6 +11,7 @@ export interface EditorTopBarProps {
   onNavigateStep?: (step: 'ingest' | 'review' | 'timeline') => void;
   onOpenSettings?: () => void;
   onExport?: () => void;
+  onSmartSync?: () => void;
 }
 
 export const EditorTopBar: React.FC<EditorTopBarProps> = ({
@@ -19,6 +20,7 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
   onNavigateStep,
   onOpenSettings,
   onExport,
+  onSmartSync,
 }) => {
   const navigate = useNavigate();
   const autosaveStatus = useTimelineStore((s) => s.autosaveStatus);
@@ -130,8 +132,19 @@ export const EditorTopBar: React.FC<EditorTopBarProps> = ({
         </div>
       </div>
 
-      {/* Right: Project Settings & Export */}
+      {/* Right: Project Settings, Smart Sync & Export */}
       <div className="flex items-center gap-2">
+        {onSmartSync && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onSmartSync}
+            aria-label="Smart Sync Speech-to-Text Alignment"
+          >
+            <Wand2 className="w-3.5 h-3.5 mr-1 text-accent" />
+            Smart Sync
+          </Button>
+        )}
         {onOpenSettings && (
           <Button
             variant="secondary"

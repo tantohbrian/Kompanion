@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { AlertTriangle, Download } from 'lucide-react';
-import { Button } from '../ui';
 import { db } from '../core/storage/db';
 import { ensureDefaultWorkspace } from '../core/storage/storage';
 import { Project, Clip, AudioClip } from '../core/model/types';
 import { migrateAndValidateProject } from '../core/model/migrations';
-import { downloadCorruptProjectJson } from '../features/projects/recovery';
+import { CorruptProjectView } from './CorruptProjectView';
 import { IngestView, IngestedImage, IngestedAudio } from '../features/ingest';
 import { ScriptReviewView } from '../features/script-review';
 import { EditorPage } from '../features/editor/EditorPage';
@@ -16,13 +14,17 @@ import { parseScript } from '../core/parser/registry';
 import { useTimelineStore } from '../core/timeline';
 import { ProjectWorkflowHeader } from './ProjectWorkflowHeader';
 import { ExportErrorBoundary } from '../features/export';
+import { SmartSyncErrorBoundary } from '../features/script-review';
 
 const LazyExportModal = React.lazy(() =>
   import('../features/export').then((m) => ({ default: m.ExportModal }))
 );
 
-export type WorkflowStep = 'ingest' | 'review' | 'timeline' | 'export';
+const LazySmartSyncModal = React.lazy(() =>
+  import('../features/script-review').then((m) => ({ default: m.SmartSyncModal }))
+);
 
+export type WorkflowStep = 'ingest' | 'review' | 'timeline' | 'export';
 
 export const ProjectWorkflowPage: React.FC = () => {
   const { workspaceId = 'default', projectId = '' } = useParams<{
@@ -37,6 +39,7 @@ export const ProjectWorkflowPage: React.FC = () => {
   const [activeStep, setActiveStep] = useState<WorkflowStep>('timeline');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [smartSyncOpen, setSmartSyncOpen] = useState(false);
 
   // Ingest draft state
   const [ingestedImages, setIngestedImages] = useState<IngestedImage[]>([]);
@@ -61,6 +64,7 @@ export const ProjectWorkflowPage: React.FC = () => {
 
         const valid = migrateAndValidateProject(record);
         if (!valid.ok) {
+          console.error('[PROJECT_VALIDATION_ERROR]', valid.error);
           if (!cancelled) {
             setCorruptProjectRecord(record);
             setIsLoading(false);
@@ -105,30 +109,11 @@ export const ProjectWorkflowPage: React.FC = () => {
 
   if (corruptProjectRecord) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-8 bg-canvas text-text-primary text-center">
-        <AlertTriangle className="w-12 h-12 text-warning mb-4" />
-        <h2 className="text-lg font-bold mb-2">Corrupt Project Data Detected</h2>
-        <p className="text-xs text-text-secondary max-w-md mb-6">
-          This project record failed schema validation. You can export its raw JSON for inspection and manual recovery.
-        </p>
-        <div className="flex gap-3">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => navigate(`/w/${workspaceId}`)}
-          >
-            Back to Projects
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => downloadCorruptProjectJson(corruptProjectRecord, `corrupt-${projectId}.json`)}
-          >
-            <Download className="w-3.5 h-3.5 mr-1" />
-            Download Raw JSON
-          </Button>
-        </div>
-      </div>
+      <CorruptProjectView
+        corruptRecord={corruptProjectRecord}
+        projectId={projectId}
+        onBack={() => navigate(`/w/${workspaceId}`)}
+      />
     );
   }
 
@@ -200,12 +185,33 @@ export const ProjectWorkflowPage: React.FC = () => {
   const totalAudioMs = ingestedAudio.reduce((sum, a) => sum + (a.durationMs || 0), 0);
 
   if (activeStep === 'timeline') {
+    const smartSyncSegments = (project?.timeline.clips || []).map((clip, idx) => {
+      const scriptSegments = project?.script?.parse?.segments || parseResult?.segments || [];
+      const seg = scriptSegments.find((s) => s.index === clip.sourceSegment) || scriptSegments[idx];
+      return {
+        index: idx + 1,
+        clipId: clip.id,
+        startMs: 0,
+        endMs: clip.durationMs,
+        promptText: seg?.promptText,
+        narrationText: seg?.narrationText,
+      };
+    });
+
+    const handleApplyTimelineSync = (diffs: { clipId?: string; proposedDurationMs: number; status: string }[]) => {
+      const updates = diffs
+        .filter((d) => d.status === 'accepted' && d.clipId)
+        .map((d) => ({ clipId: d.clipId!, durationMs: d.proposedDurationMs }));
+      useTimelineStore.getState().applySmartSyncDiff(updates);
+    };
+
     return (
       <div className="flex flex-col h-full bg-canvas text-text-primary">
         <EditorPage
           onNavigateStep={setActiveStep}
           onOpenSettings={() => setSettingsOpen(true)}
           onExport={() => setExportOpen(true)}
+          onSmartSync={() => setSmartSyncOpen(true)}
         />
         <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
         {project && exportOpen && (
@@ -218,6 +224,18 @@ export const ProjectWorkflowPage: React.FC = () => {
               />
             </React.Suspense>
           </ExportErrorBoundary>
+        )}
+        {project && smartSyncOpen && (
+          <SmartSyncErrorBoundary onReset={() => setSmartSyncOpen(false)}>
+            <React.Suspense fallback={null}>
+              <LazySmartSyncModal
+                isOpen={smartSyncOpen}
+                onClose={() => setSmartSyncOpen(false)}
+                segments={smartSyncSegments}
+                onApplyAlignment={handleApplyTimelineSync}
+              />
+            </React.Suspense>
+          </SmartSyncErrorBoundary>
         )}
       </div>
     );

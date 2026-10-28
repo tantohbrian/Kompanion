@@ -15,12 +15,14 @@ export interface EditorPageProps {
   onNavigateStep?: (step: 'ingest' | 'review' | 'timeline') => void;
   onOpenSettings?: () => void;
   onExport?: () => void;
+  onSmartSync?: () => void;
 }
 
 export const EditorPage: React.FC<EditorPageProps> = ({
   onNavigateStep,
   onOpenSettings,
   onExport,
+  onSmartSync,
 }) => {
   const { workspaceId = 'default', projectId = 'new' } = useParams<{
     workspaceId: string;
@@ -254,6 +256,7 @@ export const EditorPage: React.FC<EditorPageProps> = ({
         onNavigateStep={onNavigateStep}
         onOpenSettings={onOpenSettings}
         onExport={onExport}
+        onSmartSync={onSmartSync}
       />
 
       {/* Main 3-Pane Body */}

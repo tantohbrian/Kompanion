@@ -233,3 +233,24 @@ export function updateAudio(timeline: Timeline, args: UpdateAudioArgs): Timeline
   assertTimelineInvariants(updated);
   return updated;
 }
+
+/**
+ * Updates multiple clip durations simultaneously while maintaining magnetic invariants.
+ */
+export function applyClipDurations(
+  timeline: Timeline,
+  durations: { clipId: string; durationMs: number }[]
+): Timeline {
+  const durationMap = new Map(durations.map((d) => [d.clipId, d.durationMs]));
+  const newClips = timeline.clips.map((clip) => {
+    const newDur = durationMap.get(clip.id);
+    if (newDur !== undefined && newDur > 0) {
+      return { ...clip, durationMs: Math.round(newDur) };
+    }
+    return clip;
+  });
+  const updated: Timeline = { ...timeline, clips: newClips };
+  assertTimelineInvariants(updated);
+  return updated;
+}
+

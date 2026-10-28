@@ -236,10 +236,11 @@ graph TD
 
 ---
 
-### M5: Smart Sync (Optional)
+### M5: Smart Sync (Optional) [COMPLETED]
 - **Goal**: In-browser Whisper speech-to-text alignment for snapping image cuts to spoken phrases.
+- **Status**: Completed. Pinned `@huggingface/transformers@3.8.1` recorded under ADR-0005 in `docs/DECISIONS.md`. Initial entry bundle budget $\le 250\text{ KB}$ gzipped maintained (90.09 KB gzipped). Smart Sync is completely off by default with zero network requests until explicit consent is confirmed in `SmartSyncConsentView`. Dedicated Web Worker (`src/core/sync/worker.ts`) with `onnx-community/whisper-base_timestamped`, `{ return_timestamps: 'word', chunk_length_s: 29 }`, and WASM device fallback. Sequence alignment engine (`src/core/sync/aligner.ts`) with `NO_NARRATION_TEXT` pre-flight diagnostic and contiguous magnetic timeline preservation (`clip[0].startMs === 0`, `clip[i].startMs === prior endMs`). Accessible Before/After diff table (`SyncDiffTable.tsx`) with tabular numerals, shift delta badges, and atomic undo (`Cmd/Ctrl+Z`). Passing all quality gates and Playwright E2E with 0 axe-core accessibility violations.
 - **Deliverables**:
-  - Optional alignment engine using `@huggingface/transformers@3.8.1`.
+  - Optional alignment engine using `@huggingface/transformers@3.8.1` (ADR-0005).
   - Consent modal detailing model download (~90 MB) and local processing.
   - Dedicated Web Worker entry point: `src/core/sync/worker.ts` for Whisper inference:
     - Model: `onnx-community/whisper-base_timestamped` with `{ return_timestamps: 'word' }`.
@@ -250,16 +251,18 @@ graph TD
   - Before/after diff review table in UI; user explicitly accepts or rejects proposed timestamp adjustments.
   - Smart Sync error boundary: `SmartSyncErrorBoundary.tsx`.
 - **Modules**:
-  - `src/core/sync/`: `worker.ts`, `aligner.ts`, `whisperClient.ts`.
-  - `src/features/script-review/SmartSyncModal.tsx`, `SyncDiffTable.tsx`, `SmartSyncErrorBoundary.tsx`.
+  - `src/core/sync/`: `worker.ts`, `aligner.ts`, `whisperClient.ts`, `types.ts`, `index.ts`.
+  - `src/features/script-review/`: `SmartSyncModal.tsx`, `SmartSyncConsentView.tsx`, `SyncDiffTable.tsx`, `SmartSyncErrorBoundary.tsx`.
 - **Tests**:
-  - Benchmark test against fixture with known ground truth word timestamps; prove boundary error drops.
+  - Benchmark test against fixture with known ground truth word timestamps; prove boundary error drops (4 unit tests passed in `sync.test.ts`).
   - Test graceful fallback when narration text is missing.
   - Test WASM fallback.
+  - Playwright E2E test (`tests/e2e/m5-smart-sync.spec.ts`): No-narration diagnostic, consent gating, word alignment, diff review, atomic timeline application, and axe-core accessibility audit (0 violations).
 - **Exit Gate**:
   - On fixture with ground truth, boundary error drops vs raw timestamps.
   - Automatic fallback to WASM and unsynced timing.
   - If script lacks narration text, reports diagnostic and halts cleanly.
+  - All quality gates pass (`typecheck`, `lint`, `test`, `build`, `check:bundle`, `check:boundaries`, `test:e2e`).
 - **Risks & Mitigations**:
   - *Risk*: Network interruptions during 90 MB model download.
   - *Mitigation*: Progress bar, cache via Cache API, retry mechanism.

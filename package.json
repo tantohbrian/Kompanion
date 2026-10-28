@@ -16,6 +16,7 @@
     "check:bundle": "node scripts/checkBundle.js"
   },
   "dependencies": {
+    "@huggingface/transformers": "3.8.1",
     "@mediabunny/aac-encoder": "1.62.1",
     "@radix-ui/react-dialog": "1.1.2",
     "@radix-ui/react-dropdown-menu": "2.1.2",

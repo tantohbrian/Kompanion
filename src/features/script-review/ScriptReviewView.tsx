@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Check, Sparkles, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Check, Sparkles, AlertTriangle, Wand2 } from 'lucide-react';
 import { Button } from '../../ui';
 import { ScriptReviewTable, MappedAsset } from './ScriptReviewTable';
 import { MismatchResolver } from './MismatchResolver';
@@ -7,6 +7,9 @@ import { ParsedSegment, ParseResult } from '../../core/parser/types';
 import { getRegisteredParsers, parseScript } from '../../core/parser/registry';
 import { Clip, AudioClip } from '../../core/model/types';
 import { autoFixOverlaps, autoCloseGaps, extendLastSegmentTo } from '../../core/parser/diagnostics';
+import { SmartSyncModal } from './SmartSyncModal';
+import { SmartSyncErrorBoundary } from './SmartSyncErrorBoundary';
+import { AlignedSegmentDiff } from '../../core/sync/types';
 
 interface ScriptReviewViewProps {
   projectId: string;
@@ -29,6 +32,7 @@ export const ScriptReviewView: React.FC<ScriptReviewViewProps> = ({
   const [parseResult, setParseResult] = useState<ParseResult>(initialParseResult);
   const [selectedStrategy, setSelectedStrategy] = useState<string>(initialParseResult.strategyName);
   const [segments, setSegments] = useState<ParsedSegment[]>(initialParseResult.segments);
+  const [isSmartSyncOpen, setIsSmartSyncOpen] = useState(false);
 
   const imageAssets = assets.filter((a) => a.kind === 'image');
   const audioAssets = assets.filter((a) => a.kind === 'audio');
@@ -78,6 +82,27 @@ export const ScriptReviewView: React.FC<ScriptReviewViewProps> = ({
         return copy;
       });
     }
+  };
+
+  const handleApplyAlignment = (diffs: AlignedSegmentDiff[]) => {
+    const diffMap = new Map(diffs.map((d) => [d.index, d]));
+    setSegments((prev) => {
+      let currentStart = 0;
+      return prev.map((seg) => {
+        const diff = diffMap.get(seg.index);
+        const duration =
+          diff && diff.status === 'accepted'
+            ? diff.proposedDurationMs
+            : seg.endMs - seg.startMs;
+        const newSeg = {
+          ...seg,
+          startMs: currentStart,
+          endMs: currentStart + duration,
+        };
+        currentStart += duration;
+        return newSeg;
+      });
+    });
   };
 
   // Acceptance & Timeline Assembly
@@ -142,6 +167,17 @@ export const ScriptReviewView: React.FC<ScriptReviewViewProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Smart Sync Trigger Button */}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setIsSmartSyncOpen(true)}
+            aria-label="Smart Sync Speech-to-Text Alignment"
+          >
+            <Wand2 className="w-3.5 h-3.5 mr-1.5 text-accent" />
+            Smart Sync
+          </Button>
+
           {/* Strategy Selector */}
           <div className="flex items-center gap-2 text-xs">
             <span className="text-text-secondary whitespace-nowrap">Strategy:</span>
@@ -227,6 +263,18 @@ export const ScriptReviewView: React.FC<ScriptReviewViewProps> = ({
           Accept Timeline
         </Button>
       </div>
+
+      <SmartSyncErrorBoundary onReset={() => setIsSmartSyncOpen(false)}>
+        <SmartSyncModal
+          isOpen={isSmartSyncOpen}
+          onClose={() => setIsSmartSyncOpen(false)}
+          segments={segments}
+          thumbnails={Object.fromEntries(
+            mappedAssets.map((m, idx) => [idx + 1, m.thumbnailUrl || ''])
+          )}
+          onApplyAlignment={handleApplyAlignment}
+        />
+      </SmartSyncErrorBoundary>
     </div>
   );
 };

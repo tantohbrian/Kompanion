@@ -46,6 +46,7 @@ export interface TimelineState {
   applyToAllClips: (updates: Partial<Omit<Clip, 'id' | 'assetId' | 'durationMs' | 'sourceSegment'>>) => void;
   updateAudio: (gain?: number, muted?: boolean) => void;
   updateProjectSettings: (updates: Partial<ProjectDefaults>) => void;
+  applySmartSyncDiff: (durations: { clipId: string; durationMs: number }[]) => void;
 }
 
 const DEFAULT_PROJECT: Project = {
@@ -259,6 +260,17 @@ export const useTimelineStore = create<TimelineState>()(
             settings: { ...project.settings, ...updates },
             updatedAt: Date.now(),
           },
+          autosaveStatus: 'saving',
+        });
+      },
+
+      applySmartSyncDiff: (durations) => {
+        const { project } = get();
+        const updatedTimeline = ops.applyClipDurations(project.timeline, durations);
+        if (updatedTimeline === project.timeline) return;
+
+        set({
+          project: { ...project, timeline: updatedTimeline, updatedAt: Date.now() },
           autosaveStatus: 'saving',
         });
       },

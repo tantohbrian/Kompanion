@@ -106,4 +106,27 @@ Per `docs/PRD.md` Section 4.6, 6, 9, 10, and `.agent/skills/render-and-export/SK
 - Capability to read back exported MP4 files via Mediabunny's demuxer to verify video/audio tracks and timestamps.
 - Zero `ffmpeg.wasm` dependency.
 
+---
+
+## ADR-0005: Transformers.js for Smart Sync Speech-to-Text Alignment
+
+- **Status**: Accepted
+- **Date**: 2026-10-28
+- **Deciders**: Development Team
+
+### Context
+Per `docs/PRD.md` Section 4.7, 8, 9, 10, 19, and `.agent/skills/smart-sync/SKILL.md`, Milestone 5 introduces optional in-browser Smart Sync speech-to-text alignment using Whisper. It requires local execution, explicit user consent prior to downloading the ~90 MB model, and isolation within a dedicated Web Worker. Version pinning to stable 3.x (`3.8.1`) avoids v4 segment-collapse bugs.
+
+### Decision
+1. Add `@huggingface/transformers` pinned to exact version `3.8.1` (`Apache-2.0`).
+2. Run transcription exclusively in a dedicated Web Worker (`src/core/sync/worker.ts`) using `onnx-community/whisper-base_timestamped` with `{ return_timestamps: 'word', chunk_length_s: 29 }`.
+3. Use WASM backend fallback for deterministic word timestamps across browser engines.
+4. Ensure Smart Sync UI and worker chunks are lazy-loaded so initial entry bundle stays $\le 250\text{ KB}$ gzipped.
+
+### Consequences
+- Full in-browser word-level speech-to-text alignment with zero external server dependencies.
+- Zero network activity occurs until the user explicitly consents via `SmartSyncModal`.
+- Initial bundle size budget ($\le 250\text{ KB}$) is preserved.
+
+
 

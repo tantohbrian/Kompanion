@@ -75,7 +75,8 @@ test.describe('M1 Workspaces, Projects & Settings E2E', () => {
     await page.getByRole('button', { name: /new project/i }).click();
     await page.getByLabel(/project name/i).fill('Temp To Undo');
     await page.getByRole('button', { name: /create project/i }).click();
-    await page.goBack();
+    await expect(page).toHaveURL(/.*\/p\/proj-.*/);
+    await page.goto('/w/default');
 
     await expect(page.getByText('Temp To Undo')).toBeVisible();
 
@@ -109,7 +110,8 @@ test.describe('M1 Workspaces, Projects & Settings E2E', () => {
     await page.getByRole('button', { name: /new project/i }).click();
     await page.getByLabel(/project name/i).fill('Temp To Purge');
     await page.getByRole('button', { name: /create project/i }).click();
-    await page.goBack();
+    await expect(page).toHaveURL(/.*\/p\/proj-.*/);
+    await page.goto('/w/default');
 
     await expect(page.getByRole('heading', { name: 'Temp To Purge' })).toBeVisible();
 
