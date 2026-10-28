@@ -91,6 +91,11 @@ export function alignSegmentsToWords(
     idx,
   }));
 
+const STOPWORDS = new Set([
+  'a', 'an', 'the', 'and', 'or', 'but', 'if', 'in', 'on', 'at', 'to', 'for',
+  'of', 'with', 'by', 'as', 'is', 'it', 'its', 'so', 'be', 'do', 'no', 'up',
+]);
+
   // 3. Match each segment's narration tokens against normalized transcript
   interface RawSpan {
     firstWordIdx: number;
@@ -120,36 +125,65 @@ export function alignSegmentsToWords(
     let bestStart = -1;
     let bestEnd = -1;
     let matchCount = 0;
-    const searchWindow = 60; // search ahead window
+    let bestScore = 0;
+    const searchWindow = 80; // search ahead window
 
     const maxSearch = Math.min(normalizedWords.length, currentWordSearchIdx + searchWindow);
+    const startCandidates = targetTokens.slice(0, 3);
+
     for (let i = currentWordSearchIdx; i < maxSearch; i++) {
-      if (normalizedWords[i]!.token === targetTokens[0]) {
+      const targetStartIndex = startCandidates.indexOf(normalizedWords[i]!.token);
+      if (targetStartIndex !== -1) {
         // Candidate start found
         let matches = 1;
         let lastMatchIdx = i;
 
-        let targetIdx = 1;
-        for (let j = i + 1; j < Math.min(normalizedWords.length, i + targetTokens.length + 10); j++) {
-          if (targetIdx < targetTokens.length && normalizedWords[j]!.token === targetTokens[targetIdx]) {
+        let targetIdx = targetStartIndex + 1;
+        for (
+          let j = i + 1;
+          j < Math.min(normalizedWords.length, i + targetTokens.length + 15);
+          j++
+        ) {
+          if (
+            targetIdx < targetTokens.length &&
+            normalizedWords[j]!.token === targetTokens[targetIdx]
+          ) {
             matches++;
             lastMatchIdx = j;
             targetIdx++;
+          } else if (
+            targetIdx + 1 < targetTokens.length &&
+            normalizedWords[j]!.token === targetTokens[targetIdx + 1]
+          ) {
+            // Tolerates a skipped word in Whisper
+            matches++;
+            lastMatchIdx = j;
+            targetIdx += 2;
           }
         }
 
-        if (matches > matchCount) {
+        // Proximity tie-breaker: slight penalty for distance from currentWordSearchIdx
+        const proximityScore = matches - (i - currentWordSearchIdx) * 0.005;
+        const minMatchesNeeded = targetTokens.length === 1 ? 1 : 2;
+        const isSingleStopword =
+          targetTokens.length === 1 &&
+          (STOPWORDS.has(targetTokens[0]!) || targetTokens[0]!.length <= 2);
+
+        if (!isSingleStopword && proximityScore > bestScore && matches >= minMatchesNeeded) {
+          bestScore = proximityScore;
           matchCount = matches;
-          bestStart = i;
+          const startOffset = Math.min(targetStartIndex + 1, i - currentWordSearchIdx);
+          bestStart = targetStartIndex === 0 ? i : Math.max(currentWordSearchIdx, i - startOffset);
           bestEnd = lastMatchIdx;
         }
       }
     }
 
-    // Fallback: search for first or last token if exact phrase not found
+    // Fallback: search for first non-stopword token if exact phrase not found
     if (bestStart === -1 && currentWordSearchIdx < normalizedWords.length) {
       for (let i = currentWordSearchIdx; i < maxSearch; i++) {
-        if (targetTokens.includes(normalizedWords[i]!.token)) {
+        const token = normalizedWords[i]!.token;
+        if (token.length > 2 && !STOPWORDS.has(token) && targetTokens.includes(token)) {
           bestStart = i;
           bestEnd = i;
           matchCount = 1;
@@ -220,7 +254,9 @@ export function alignSegmentsToWords(
     const pEnd = cutPoints[i + 1]!;
     const pDur = pEnd - pStart;
     const origDur = orig.endMs - orig.startMs;
-    const delta = pDur - origDur;
+    const startShift = pStart - orig.startMs;
+    const durationDelta = pDur - origDur;
+    const delta = startShift !== 0 ? startShift : durationDelta;
     totalDriftMs += Math.abs(delta);
 
     const span = spans[i];
