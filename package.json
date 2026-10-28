@@ -16,6 +16,7 @@
     "check:bundle": "node scripts/checkBundle.js"
   },
   "dependencies": {
+    "@mediabunny/aac-encoder": "1.62.1",
     "@radix-ui/react-dialog": "1.1.2",
     "@radix-ui/react-dropdown-menu": "2.1.2",
     "@radix-ui/react-slider": "1.2.1",
@@ -24,6 +25,7 @@
     "clsx": "2.1.1",
     "dexie": "4.0.10",
     "lucide-react": "0.460.0",
+    "mediabunny": "1.62.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-router-dom": "6.28.0",

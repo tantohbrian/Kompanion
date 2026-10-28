@@ -1,6 +1,6 @@
 import { ResolvedScene, ResolvedClip, RenderCache } from './types';
-import { calculateAnimationTransform } from './animations';
-import { calculateTransitionBlend } from './transitions';
+import { getAnimation } from '../animation';
+import { calculateTransitionBlend } from '../transition';
 
 type CanvasContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
@@ -28,11 +28,9 @@ function drawTransformedImage(
 
   if (fit === 'cover') {
     if (imageAspect > canvasAspect) {
-      // Image is wider than canvas: match height, crop width
       drawH = canvasHeight;
       drawW = canvasHeight * imageAspect;
     } else {
-      // Image is taller than canvas: match width, crop height
       drawW = canvasWidth;
       drawH = canvasWidth / imageAspect;
     }
@@ -137,19 +135,23 @@ export function renderFrame(
     Math.min(1, (clampedTime - currentClip.startMs) / currentClip.durationMs)
   );
 
-  const currentTransform = calculateAnimationTransform(
-    currentClip.resolvedAnimation,
-    p,
-    currentClip.index,
-    W,
-    H
-  );
+  const currentAnimationPreset = getAnimation(currentClip.resolvedAnimation.id);
+  const currentTransform = currentAnimationPreset.evaluate({
+    progress: p,
+    clipIndex: currentClip.index,
+    canvasWidth: W,
+    canvasHeight: H,
+    params: currentClip.resolvedAnimation.params,
+  });
 
   // 3. Evaluate Transition-In from previous clip
   const transitionBlend = calculateTransitionBlend(
     currentClip.resolvedTransitionIn,
     clampedTime,
-    currentClip.startMs
+    currentClip.startMs,
+    W,
+    H,
+    currentClip.durationMs
   );
 
   if (transitionBlend.isTransitioning && activeIndex > 0) {
@@ -157,23 +159,29 @@ export function renderFrame(
     const prevAsset = scene.assets.get(prevClip.clip.assetId);
     const prevBitmap = prevAsset ? cache.getBitmap(prevAsset.id, W) : null;
 
-    // Previous clip is evaluated at the end of its duration (progress = 1.0)
-    const prevTransform = calculateAnimationTransform(
-      prevClip.resolvedAnimation,
-      1.0,
-      prevClip.index,
-      W,
-      H
-    );
+    // Previous clip evaluated at end of duration
+    const prevAnimationPreset = getAnimation(prevClip.resolvedAnimation.id);
+    const prevTransform = prevAnimationPreset.evaluate({
+      progress: 1.0,
+      clipIndex: prevClip.index,
+      canvasWidth: W,
+      canvasHeight: H,
+      params: prevClip.resolvedAnimation.params,
+    });
 
     // Render outgoing clip
     if (transitionBlend.outgoingAlpha > 0) {
+      const outTransform = {
+        scale: prevTransform.scale,
+        translateX: prevTransform.translateX + (transitionBlend.outgoingOffsetX ?? 0),
+        translateY: prevTransform.translateY + (transitionBlend.outgoingOffsetY ?? 0),
+      };
       if (prevBitmap) {
         drawTransformedImage(
           ctx,
           prevBitmap,
           prevClip.clip.fit,
-          prevTransform,
+          outTransform,
           W,
           H,
           transitionBlend.outgoingAlpha
@@ -185,12 +193,17 @@ export function renderFrame(
 
     // Render incoming clip
     if (transitionBlend.incomingAlpha > 0) {
+      const inTransform = {
+        scale: currentTransform.scale,
+        translateX: currentTransform.translateX + (transitionBlend.incomingOffsetX ?? 0),
+        translateY: currentTransform.translateY + (transitionBlend.incomingOffsetY ?? 0),
+      };
       if (currentBitmap) {
         drawTransformedImage(
           ctx,
           currentBitmap,
           currentClip.clip.fit,
-          currentTransform,
+          inTransform,
           W,
           H,
           transitionBlend.incomingAlpha
@@ -201,7 +214,7 @@ export function renderFrame(
     }
 
     // Dip-to-black overlay if active
-    if (transitionBlend.blackOverlayAlpha > 0) {
+    if (transitionBlend.blackOverlayAlpha && transitionBlend.blackOverlayAlpha > 0) {
       ctx.save();
       ctx.globalAlpha = transitionBlend.blackOverlayAlpha;
       ctx.fillStyle = '#000000';

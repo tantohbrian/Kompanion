@@ -85,4 +85,25 @@ Upgrade `dependency-cruiser` to `18.7.0` (devDependency only). Update `.dependen
 - `npm run check:boundaries` executes cleanly under Node v24+.
 - Pinned to exact version `18.7.0`.
 
+---
+
+## ADR-0004: Mediabunny and AAC Encoder for MP4 Export and Post-Export Read-Back
+
+- **Status**: Accepted
+- **Date**: 2026-10-27
+- **Deciders**: Development Team
+
+### Context
+Per `docs/PRD.md` Section 4.6, 6, 9, 10, and `.agent/skills/render-and-export/SKILL.md`, Milestone 4 requires an in-browser MP4 export pipeline using WebCodecs with H.264 video and AAC audio muxing, with post-export read-back verification. `ffmpeg.wasm` is strictly disallowed. When native AAC encoding is not available in the browser runtime, the `@mediabunny/aac-encoder` WebAssembly polyfill must be registered dynamically.
+
+### Decision
+1. Add `mediabunny` pinned to exact version `1.62.1` (`MPL-2.0`).
+2. Add `@mediabunny/aac-encoder` pinned to exact version `1.62.1` (`MPL-2.0`).
+3. Ensure Mediabunny and the export pipeline are isolated in the dedicated Web Worker and dynamic imports so the initial bundle size stays well within the $\le 250\text{ KB}$ gzipped budget.
+
+### Consequences
+- Native MP4 muxing and encoding with `Mp4OutputFormat`, `CanvasSource` (H.264), and `AudioBufferSource` (AAC).
+- Capability to read back exported MP4 files via Mediabunny's demuxer to verify video/audio tracks and timestamps.
+- Zero `ffmpeg.wasm` dependency.
+
 

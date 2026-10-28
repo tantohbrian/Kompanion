@@ -69,6 +69,11 @@ export const ClipInspector: React.FC<ClipInspectorProps> = ({ clip, index, total
       updateClip(clip.id, {
         transitionIn: { id: 'dip-to-black', durationMs: Math.min(500, maxTransMs) },
       });
+    } else if (transType === 'slide') {
+      const maxTransMs = Math.floor(clip.durationMs * 0.5);
+      updateClip(clip.id, {
+        transitionIn: { id: 'slide', durationMs: Math.min(500, maxTransMs) },
+      });
     }
   };
 
@@ -245,6 +250,7 @@ export const ClipInspector: React.FC<ClipInspectorProps> = ({ clip, index, total
           <option value="cut">Cut (0ms)</option>
           <option value="crossfade">Crossfade</option>
           <option value="dip-to-black">Dip to Black</option>
+          <option value="slide">Slide</option>
         </select>
 
         {currentTransId !== 'cut' && currentTransId !== 'inherit' && (

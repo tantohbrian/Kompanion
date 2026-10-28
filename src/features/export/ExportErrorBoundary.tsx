@@ -4,6 +4,7 @@ import { Button } from '../../ui';
 
 interface Props {
   children: ReactNode;
+  onReset?: () => void;
 }
 
 interface State {
@@ -27,6 +28,7 @@ export class ExportErrorBoundary extends Component<Props, State> {
 
   handleReset = () => {
     this.setState({ hasError: false, error: null });
+    this.props.onReset?.();
   };
 
   render() {
@@ -43,11 +45,11 @@ export class ExportErrorBoundary extends Component<Props, State> {
             Export Error
           </h2>
           <p className="text-xs text-text-secondary mb-3 leading-relaxed">
-            {this.state.error?.message || 'An error occurred during video export preparation.'}
+            {this.state.error?.message || 'An error occurred during video export.'}
           </p>
           <Button variant="secondary" size="sm" onClick={this.handleReset}>
             <RefreshCw className="w-3.5 h-3.5 mr-1" />
-            Retry
+            Reset
           </Button>
         </div>
       );

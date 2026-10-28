@@ -8,8 +8,9 @@ export interface FeatureManifest {
 
 export const feature: FeatureManifest = {
   id: 'export',
-  name: 'Export',
+  name: 'Export & Mediabunny Pipeline',
   version: '0.1.0',
-  description: 'Mediabunny-based hardware-accelerated MP4 export pipeline and progress modal',
-  status: 'placeholder',
+  description:
+    'Frame-accurate Mediabunny MP4 export in a Web Worker, resolution/fps presets, offline audio mixing, and post-export read-back verification.',
+  status: 'stable',
 };

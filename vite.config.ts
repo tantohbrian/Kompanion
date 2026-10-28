@@ -14,6 +14,10 @@ export default defineConfig({
     port: 5173,
     host: true,
   },
+  worker: {
+    format: 'es',
+  },
+
   build: {
     target: 'esnext',
     sourcemap: true,

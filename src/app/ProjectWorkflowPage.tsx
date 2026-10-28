@@ -15,8 +15,14 @@ import { ParseResult } from '../core/parser/types';
 import { parseScript } from '../core/parser/registry';
 import { useTimelineStore } from '../core/timeline';
 import { ProjectWorkflowHeader } from './ProjectWorkflowHeader';
+import { ExportErrorBoundary } from '../features/export';
+
+const LazyExportModal = React.lazy(() =>
+  import('../features/export').then((m) => ({ default: m.ExportModal }))
+);
 
 export type WorkflowStep = 'ingest' | 'review' | 'timeline' | 'export';
+
 
 export const ProjectWorkflowPage: React.FC = () => {
   const { workspaceId = 'default', projectId = '' } = useParams<{
@@ -30,6 +36,7 @@ export const ProjectWorkflowPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [activeStep, setActiveStep] = useState<WorkflowStep>('timeline');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   // Ingest draft state
   const [ingestedImages, setIngestedImages] = useState<IngestedImage[]>([]);
@@ -198,9 +205,20 @@ export const ProjectWorkflowPage: React.FC = () => {
         <EditorPage
           onNavigateStep={setActiveStep}
           onOpenSettings={() => setSettingsOpen(true)}
-          onExport={() => alert('Video export pipeline (Mediabunny MP4) will be enabled in Milestone 4!')}
+          onExport={() => setExportOpen(true)}
         />
         <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
+        {project && exportOpen && (
+          <ExportErrorBoundary onReset={() => setExportOpen(false)}>
+            <React.Suspense fallback={null}>
+              <LazyExportModal
+                project={project}
+                isOpen={exportOpen}
+                onClose={() => setExportOpen(false)}
+              />
+            </React.Suspense>
+          </ExportErrorBoundary>
+        )}
       </div>
     );
   }

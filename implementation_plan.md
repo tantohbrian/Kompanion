@@ -195,8 +195,9 @@ graph TD
 
 ---
 
-### M4: Export and Animations
+### M4: Export and Animations [COMPLETED]
 - **Goal**: Frame-accurate Mediabunny MP4 export in a Web Worker, motion presets, transition effects with duration clamping, and sanitized output filenames.
+- **Status**: Completed. Animation registry (`none`, `ken-burns` with deterministic clip-index alternation and 4-10% intensity, `pan`, `pop`), Transition registry (`cut`, `crossfade`, `dip-to-black` P1) with 50% duration clamping invariant, modularity proof (`slide.ts` in 20 lines touching only `core/transition/`), frame-stepped Mediabunny export Web Worker using `OffscreenCanvas` with AudioBuffer polyfill and dynamic `@mediabunny/aac-encoder`, post-export read-back verification (duration within 1 frame, H.264/AAC track check, and 3-point pixel comparison vs `renderFrame`), lazy-loaded export modal, sanitized filename (`{project}-{YYYY-MM-DD}.mp4`), streaming to disk / memory buffer, cancellation support, and passing Playwright E2E with 0 axe-core accessibility violations.
 - **Deliverables**:
   - Animation registry & presets (P0): None (hard cut), Ken Burns (in, out, alternate; intensity 4-10%), Pan (direction), Pop (scale with small overshoot).
   - Transition registry & presets:
@@ -212,21 +213,23 @@ graph TD
   - Sanitized output filename: `{project}-{YYYY-MM-DD}.mp4` (stripping illegal filesystem characters).
   - File streaming via File System Access API on Chrome; in-memory buffer fallback.
   - Post-export read-back verification: Mediabunny reads generated MP4 and verifies duration (within 1 frame), H.264 video track, AAC audio track. Frame comparison against `renderFrame` at 3 timestamps.
-  - Modularity proof: add a slide transition touching only `core/transition` in under 40 lines.
+  - Modularity proof: add a slide transition touching only `core/transition` in under 40 lines (achieved in 20 lines).
   - Export error boundary: `ExportErrorBoundary.tsx`.
 - **Modules**:
   - `src/core/animation/`: `registry.ts`, `kenBurns.ts`, `pan.ts`, `pop.ts`.
-  - `src/core/transition/`: `registry.ts`, `cut.ts`, `crossfade.ts`, `dipToBlack.ts` (P1).
-  - `src/core/export/`: `worker.ts`, `mediabunnyPipeline.ts`, `readbackVerification.ts`, `filenameSanitizer.ts`.
-  - `src/features/export/`: `ExportModal.tsx`, `ExportProgress.tsx`, `ExportErrorBoundary.tsx`, `feature.ts`.
+  - `src/core/transition/`: `registry.ts`, `cut.ts`, `crossfade.ts`, `dipToBlack.ts` (P1), `slide.ts` (modularity proof).
+  - `src/core/export/`: `worker.ts`, `pipeline.ts`, `readbackVerification.ts`, `filenameSanitizer.ts`, `presets.ts`, `types.ts`.
+  - `src/features/export/`: `ExportModal.tsx`, `ExportConfigView.tsx`, `ExportProgressView.tsx`, `ExportCompleteView.tsx`, `ExportErrorBoundary.tsx`, `feature.ts`.
 - **Tests**:
   - Animation and transition interpolation unit tests (verifying 50% clamping).
   - End-to-end export verification test: Read back exported MP4, assert duration within 1 frame, H.264 & AAC tracks, frame pixel comparison.
   - Modularity proof test: Register slide transition touching only `core/transition/`.
+  - E2E Playwright test (`tests/e2e/m4-export-animations.spec.ts`): full export pipeline, cancellation, read-back verification, download, and axe-core accessibility audit.
 - **Exit Gate**:
   - Exported MP4 read back with Mediabunny (duration within 1 frame, H.264 and AAC present).
   - Frames pulled from MP4 match `renderFrame` output at three timestamps.
-  - Modularity proof passes (slide transition added in under 40 lines).
+  - Modularity proof passes (slide transition added in under 40 lines; 20 lines).
+  - All quality gates pass (`typecheck`, `lint`, `test`, `build`, `check:bundle`, `check:boundaries`, `test:e2e`).
 - **Risks & Mitigations**:
   - *Risk*: Platform without hardware AAC encoding support.
   - *Mitigation*: Register `@mediabunny/aac-encoder` polyfill dynamically.
