@@ -2,3 +2,8 @@ export * from './types';
 export * from './aligner';
 export * from './whisperClient';
 export * from './resampler';
+export * from './syncConfig';
+export * from './wavEncoder';
+export * from './textNormalizer';
+export * from './geminiSyncClient';
+export * from './groqWhisperClient';

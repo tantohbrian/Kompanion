@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Volume2, VolumeX, Music } from 'lucide-react';
 import { IconButton } from '../../ui';
 import { useTimelineStore } from '../../core/timeline';
@@ -6,10 +6,13 @@ import { playerController } from './playerController';
 
 export interface AudioTrackProps {
   pxPerMs: number;
+  totalDurationMs?: number;
 }
 
-export const AudioTrack: React.FC<AudioTrackProps> = ({ pxPerMs }) => {
+export const AudioTrack: React.FC<AudioTrackProps> = ({ pxPerMs, totalDurationMs = 0 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const [currentTimeMs, setCurrentTimeMs] = useState(playerController.getCurrentTimeMs());
 
   const project = useTimelineStore((s) => s.project);
   const updateAudio = useTimelineStore((s) => s.updateAudio);
@@ -20,12 +23,19 @@ export const AudioTrack: React.FC<AudioTrackProps> = ({ pxPerMs }) => {
 
   const firstAudio = audioClips[0];
   const audioAsset = firstAudio ? project.assets.find((a) => a.id === firstAudio.assetId) : null;
-  const durationMs = audioAsset?.meta.durationMs || 0;
+  const durationMs = audioAsset?.meta.durationMs || totalDurationMs || 5000;
   const trackWidthPx = Math.max(100, Math.round(durationMs * pxPerMs));
-  // Hardware safeguard: cap physical backing width to 8192px to prevent canvas context allocation crash
   const canvasWidth = Math.min(8192, Math.max(100, trackWidthPx));
 
-  // Draw cached waveform peaks on canvas
+  // Subscribe to playback time for progress wave tinting
+  useEffect(() => {
+    const unsub = playerController.subscribeTime((tMs) => {
+      setCurrentTimeMs(tMs);
+    });
+    return unsub;
+  }, []);
+
+  // Draw high-resolution mirrored audio waveform
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !firstAudio) return;
@@ -37,26 +47,82 @@ export const AudioTrack: React.FC<AudioTrackProps> = ({ pxPerMs }) => {
     const height = canvas.height;
     ctx.clearRect(0, 0, width, height);
 
-    ctx.fillStyle = muted ? 'rgba(255, 255, 255, 0.2)' : 'rgba(10, 132, 255, 0.55)';
-
-    // Synthesize or draw waveform bars
-    const barCount = Math.floor(width / 3);
     const midY = height / 2;
+    const playheadPx = Math.round(currentTimeMs * pxPerMs);
+
+    // Subtle center line
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, midY);
+    ctx.lineTo(width, midY);
+    ctx.stroke();
+
+    const barWidth = 2;
+    const barGap = 1;
+    const stride = barWidth + barGap;
+    const barCount = Math.floor(width / stride);
 
     for (let i = 0; i < barCount; i++) {
-      // Deterministic pseudo-waveform peak height
-      const seed = Math.sin(i * 0.3) * Math.cos(i * 0.15);
-      const amp = Math.max(0.15, Math.abs(seed)) * (height * 0.4);
-      const x = i * 3;
-      ctx.fillRect(x, midY - amp, 2, amp * 2);
+      const x = i * stride;
+      // Deterministic speech-like envelope peaks
+      const envelope =
+        Math.abs(Math.sin(i * 0.12) * Math.cos(i * 0.04)) * 0.7 +
+        Math.abs(Math.sin(i * 0.45)) * 0.3;
+      const amp = Math.max(3, envelope * (height * 0.42));
+
+      // Played vs unplayed tinting
+      const isPlayed = x <= playheadPx;
+      if (muted) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+      } else if (isPlayed) {
+        ctx.fillStyle = '#38bdf8'; // bright played accent
+      } else {
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.35)'; // unplayed accent
+      }
+
+      // Mirrored vertical bar
+      ctx.fillRect(x, midY - amp, barWidth, amp * 2);
     }
-  }, [firstAudio, muted, canvasWidth]);
+  }, [firstAudio, muted, canvasWidth, currentTimeMs, pxPerMs]);
 
   const handleToggleMute = (e: React.MouseEvent) => {
     e.stopPropagation();
     const nextMuted = !muted;
     updateAudio(undefined, nextMuted);
     playerController.getClock().setMuted(nextMuted);
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!trackRef.current) return;
+    const rect = trackRef.current.getBoundingClientRect();
+    const updateSeek = (clientX: number) => {
+      const offsetX = Math.max(0, clientX - rect.left);
+      const seekMs = Math.round(offsetX / pxPerMs);
+      playerController.seek(seekMs);
+    };
+
+    updateSeek(e.clientX);
+    trackRef.current.setPointerCapture(e.pointerId);
+
+    const onPointerMove = (moveEvent: PointerEvent) => {
+      updateSeek(moveEvent.clientX);
+    };
+
+    const onPointerUp = (upEvent: PointerEvent) => {
+      if (trackRef.current) {
+        try {
+          trackRef.current.releasePointerCapture(upEvent.pointerId);
+        } catch {
+          // Ignore
+        }
+      }
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
   };
 
   if (audioClips.length === 0) {
@@ -73,11 +139,13 @@ export const AudioTrack: React.FC<AudioTrackProps> = ({ pxPerMs }) => {
 
   return (
     <div
-      className="h-16 bg-canvas border-t border-border-subtle flex items-center px-2 relative min-w-full select-none"
+      ref={trackRef}
+      onPointerDown={handlePointerDown}
+      className="h-16 bg-canvas border-t border-border-subtle relative min-w-full select-none cursor-pointer overflow-hidden flex items-center"
       aria-label="Audio Track"
     >
       <div
-        className={`relative h-12 rounded border flex items-center overflow-hidden transition-colors ${
+        className={`absolute inset-y-1.5 left-0 rounded border flex items-center overflow-hidden transition-colors ${
           muted
             ? 'bg-surface-elevated/40 border-border opacity-60'
             : 'bg-accent/10 border-accent/40'
@@ -88,11 +156,14 @@ export const AudioTrack: React.FC<AudioTrackProps> = ({ pxPerMs }) => {
           ref={canvasRef}
           width={canvasWidth}
           height={48}
-          className="absolute inset-0 w-full h-full block"
+          className="absolute inset-0 w-full h-full block pointer-events-none"
         />
 
         {/* Audio Track Controls Overlay */}
-        <div className="absolute left-2 flex items-center gap-2 z-10 bg-surface/80 backdrop-blur-sm px-2 py-0.5 rounded border border-border-subtle">
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="absolute left-2 flex items-center gap-2 z-10 bg-surface/85 backdrop-blur-sm px-2 py-0.5 rounded border border-border-subtle shadow-sm pointer-events-auto"
+        >
           <IconButton
             aria-label={muted ? 'Unmute Audio Track' : 'Mute Audio Track'}
             size="sm"
@@ -100,7 +171,7 @@ export const AudioTrack: React.FC<AudioTrackProps> = ({ pxPerMs }) => {
             title={muted ? 'Unmute' : 'Mute'}
           >
             {muted ? (
-              <VolumeX className="w-3 h-3 text-destructive" />
+              <VolumeX className="w-3 h-3 text-status-error" />
             ) : (
               <Volume2 className="w-3 h-3 text-accent" />
             )}

@@ -69,6 +69,14 @@ class PlayerController {
     return this.clock.isPlaying();
   }
 
+  public getIsPlaying(): boolean {
+    return this.isPlaying();
+  }
+
+  public getCurrentTimeMs(): number {
+    return this.clock.isPlaying() ? this.clock.getTimeMs() : useTimelineStore.getState().playheadMs;
+  }
+
   public async play(): Promise<void> {
     if (this.clock.isPlaying()) return;
 

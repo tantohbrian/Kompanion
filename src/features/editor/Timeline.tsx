@@ -7,6 +7,7 @@ import { Playhead } from './Playhead';
 import { useTimelineStore, calculateTotalVisualDuration } from '../../core/timeline';
 
 export const Timeline: React.FC = () => {
+  const footerRef = useRef<HTMLElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const zoom = useTimelineStore((s) => s.zoom);
@@ -31,14 +32,46 @@ export const Timeline: React.FC = () => {
   const pxPerMs = 0.1 * zoom;
   const totalWidthPx = Math.max(800, Math.round(totalDurationMs * pxPerMs));
 
-  // Ctrl + Wheel Zoom
-  const handleWheel = (e: React.WheelEvent) => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
-      setZoom(zoom * zoomFactor);
-    }
-  };
+  // Non-passive wheel event handling: prevents whole-page browser zoom and maps deltaY to horizontal scroll
+  useEffect(() => {
+    const footerEl = footerRef.current;
+    if (!footerEl) return;
+
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        // Prevent browser viewport zoom
+        e.preventDefault();
+        e.stopPropagation();
+
+        const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
+        const currentZoom = useTimelineStore.getState().zoom;
+        const newZoom = Math.max(0.1, Math.min(10, currentZoom * zoomFactor));
+
+        // Anchor zoom around cursor position if inside container
+        if (containerRef.current) {
+          const container = containerRef.current;
+          const rect = container.getBoundingClientRect();
+          const mouseX = e.clientX - rect.left + container.scrollLeft;
+          const timeAtMouse = mouseX / (0.1 * currentZoom);
+
+          useTimelineStore.getState().setZoom(newZoom);
+
+          const newMouseX = timeAtMouse * (0.1 * newZoom);
+          container.scrollLeft = Math.max(0, newMouseX - (e.clientX - rect.left));
+        } else {
+          setZoom(newZoom);
+        }
+      } else if (containerRef.current && Math.abs(e.deltaY) > 0 && Math.abs(e.deltaX) === 0) {
+        // Map vertical wheel to horizontal scroll across tracks
+        containerRef.current.scrollLeft += e.deltaY;
+      }
+    };
+
+    footerEl.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      footerEl.removeEventListener('wheel', onWheel);
+    };
+  }, [setZoom]);
 
   // Keyboard navigation on clips
   useEffect(() => {
@@ -74,7 +107,7 @@ export const Timeline: React.FC = () => {
 
   return (
     <footer
-      onWheel={handleWheel}
+      ref={footerRef}
       className="h-64 border-t border-border bg-surface flex flex-col shrink-0 select-none overflow-hidden"
     >
       {/* Top Toolbar */}
@@ -89,20 +122,20 @@ export const Timeline: React.FC = () => {
       >
         <div className="relative min-h-full" style={{ width: `${totalWidthPx}px` }}>
           {/* Time Ruler */}
-          <TimeRuler
-            totalDurationMs={totalDurationMs}
-            pxPerMs={pxPerMs}
-            fps={fps}
-          />
+          <TimeRuler totalDurationMs={totalDurationMs} pxPerMs={pxPerMs} fps={fps} />
 
           {/* Magnetic Image Track */}
           <ImageTrack pxPerMs={pxPerMs} />
 
           {/* Audio Track */}
-          <AudioTrack pxPerMs={pxPerMs} />
+          <AudioTrack pxPerMs={pxPerMs} totalDurationMs={totalDurationMs} />
 
           {/* Playhead Marker */}
-          <Playhead pxPerMs={pxPerMs} />
+          <Playhead
+            pxPerMs={pxPerMs}
+            totalDurationMs={totalDurationMs}
+            containerRef={containerRef}
+          />
         </div>
       </div>
     </footer>

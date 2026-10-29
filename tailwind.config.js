@@ -37,6 +37,7 @@ export default {
           warning: 'var(--color-warning)',
           error: 'var(--color-error)',
         },
+        destructive: '#ef4444',
       },
       fontFamily: {
         sans: [

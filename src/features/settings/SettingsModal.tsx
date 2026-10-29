@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Database, ShieldCheck, Trash2, Sun, Moon, Monitor } from 'lucide-react';
 import { Dialog, Button } from '../../ui';
 import { getStorageEstimate, requestPersistentStorage, clearAllData, StorageEstimate } from '../../core/storage/storage';
+import { getSyncConfig, saveSyncConfig, SyncConfig } from '../../core/sync/syncConfig';
 
 interface SettingsModalProps {
   open: boolean;
@@ -19,10 +20,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [estimate, setEstimate] = useState<StorageEstimate | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [syncConfig, setSyncConfig] = useState<SyncConfig>(getSyncConfig());
 
   useEffect(() => {
     if (open) {
       getStorageEstimate().then(setEstimate);
+      setSyncConfig(getSyncConfig());
     } else {
       setConfirmClear(false);
     }
@@ -89,6 +92,60 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 System
               </Button>
             </div>
+          </div>
+
+          {/* Smart Sync Provider & API Keys */}
+          <div className="p-3 bg-surface-elevated rounded-panel border border-border space-y-2.5">
+            <h3 className="text-xs font-semibold text-text-primary">Smart Sync Provider</h3>
+            <div className="grid grid-cols-3 gap-2 text-2xs">
+              <Button
+                variant={syncConfig.provider === 'gemini' ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => setSyncConfig(saveSyncConfig({ provider: 'gemini' }))}
+              >
+                Gemini 2.5
+              </Button>
+              <Button
+                variant={syncConfig.provider === 'groq' ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => setSyncConfig(saveSyncConfig({ provider: 'groq' }))}
+              >
+                Groq Whisper
+              </Button>
+              <Button
+                variant={syncConfig.provider === 'local-whisper' ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => setSyncConfig(saveSyncConfig({ provider: 'local-whisper' }))}
+              >
+                Local WASM
+              </Button>
+            </div>
+            {syncConfig.provider !== 'local-whisper' && (
+              <div className="pt-1">
+                <label className="text-[10px] text-text-secondary block mb-1">
+                  {syncConfig.provider === 'gemini' ? 'Gemini API Key' : 'Groq API Key'}
+                </label>
+                <input
+                  type="password"
+                  placeholder={
+                    syncConfig.provider === 'gemini'
+                      ? 'Pre-configured (or paste AIzaSy...)'
+                      : 'gsk_...'
+                  }
+                  value={
+                    syncConfig.provider === 'gemini'
+                      ? syncConfig.geminiApiKey
+                      : syncConfig.groqApiKey
+                  }
+                  onChange={(e) => {
+                    const field =
+                      syncConfig.provider === 'gemini' ? 'geminiApiKey' : 'groqApiKey';
+                    setSyncConfig(saveSyncConfig({ [field]: e.target.value }));
+                  }}
+                  className="w-full px-2 py-1 text-2xs font-mono bg-canvas border border-border rounded text-text-primary"
+                />
+              </div>
+            )}
           </div>
 
           {/* Storage Quota */}

@@ -41,10 +41,10 @@ export const ImageTrack: React.FC<ImageTrackProps> = ({ pxPerMs }) => {
   return (
     <div
       onClick={() => selectClip(null)}
-      className="h-20 bg-canvas flex items-center px-2 relative min-w-full"
+      className="h-20 bg-canvas relative min-w-full border-b border-border/50 select-none overflow-hidden"
       aria-label="Image Track"
     >
-      <div className="flex items-center gap-0">
+      <div className="absolute inset-y-2 left-0 right-0">
         {clips.map((clip, index) => {
           const startMs = cumulativeStartMs;
           cumulativeStartMs += clip.durationMs;

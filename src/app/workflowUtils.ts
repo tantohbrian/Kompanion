@@ -1,4 +1,4 @@
-import { Asset, Clip } from '../core/model/types';
+import { Asset, Clip, ParseResult } from '../core/model/types';
 import { ParsedSegment } from '../core/parser/types';
 import { IngestedImage, IngestedAudio } from '../features/ingest';
 
@@ -78,3 +78,20 @@ export function buildSmartSyncSegments(
     };
   });
 }
+
+export function createUpdatedDraftProject(
+  cur: import('../core/model/types').Project,
+  imgs: IngestedImage[],
+  aud: IngestedAudio[],
+  scriptText: string,
+  parsed: ParseResult | null
+): import('../core/model/types').Project {
+  const assets = ingestedToAssets(imgs, aud);
+  return {
+    ...cur,
+    assets,
+    script: { raw: scriptText, parse: parsed },
+    updatedAt: Date.now(),
+  };
+}
+

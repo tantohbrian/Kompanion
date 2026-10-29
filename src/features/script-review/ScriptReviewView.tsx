@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Check, Sparkles, AlertTriangle, Wand2 } from 'lucide-react';
+import { ArrowLeft, Check, Sparkles, Wand2 } from 'lucide-react';
 import { Button } from '../../ui';
 import { ScriptReviewTable, MappedAsset } from './ScriptReviewTable';
 import { MismatchResolver } from './MismatchResolver';
@@ -11,12 +11,14 @@ import { SmartSyncModal } from './SmartSyncModal';
 import { SmartSyncErrorBoundary } from './SmartSyncErrorBoundary';
 import { AlignedSegmentDiff } from '../../core/sync/types';
 import { checkScriptHasNarration } from '../../core/sync/aligner';
+import { sortImageAssets, findAssetForSegment, ReviewAsset } from './assetMatcher';
+import { ScriptReviewHeaderAlerts } from './ScriptReviewHeaderAlerts';
 
 interface ScriptReviewViewProps {
   projectId: string;
   rawScript: string;
   initialParseResult: ParseResult;
-  assets: { id: string; name: string; kind: 'image' | 'audio'; thumbnailUrl?: string }[];
+  assets: ReviewAsset[];
   audioBlob?: Blob | null;
   totalAudioMs?: number;
   onBackToIngest: () => void;
@@ -38,7 +40,7 @@ export const ScriptReviewView: React.FC<ScriptReviewViewProps> = ({
   const [isSmartSyncOpen, setIsSmartSyncOpen] = useState(false);
   const [hasSynced, setHasSynced] = useState(false);
 
-  const imageAssets = assets.filter((a) => a.kind === 'image');
+  const imageAssets = sortImageAssets(assets);
   const audioAssets = assets.filter((a) => a.kind === 'audio');
   const registeredStrategies = getRegisteredParsers();
   const hasAudioAndNarration = audioAssets.length > 0 && checkScriptHasNarration(segments);
@@ -100,15 +102,18 @@ export const ScriptReviewView: React.FC<ScriptReviewViewProps> = ({
 
   const handleAccept = () => {
     const sanitized = autoCloseGaps(autoFixOverlaps(segments));
-    const clips: Clip[] = sanitized.map((seg, idx) => ({
-      id: `clip-${seg.index}`,
-      assetId: imageAssets[idx]?.id || imageAssets[0]?.id || `asset-placeholder-${seg.index}`,
-      durationMs: Math.max(500, seg.endMs - seg.startMs),
-      fit: 'cover',
-      animation: 'inherit',
-      transitionIn: 'inherit',
-      sourceSegment: seg.index,
-    }));
+    const clips: Clip[] = sanitized.map((seg, idx) => {
+      const asset = findAssetForSegment(imageAssets, seg.index, idx);
+      return {
+        id: `clip-${seg.index}`,
+        assetId: asset?.id || `asset-placeholder-${seg.index}`,
+        durationMs: Math.max(500, seg.endMs - seg.startMs),
+        fit: 'cover',
+        animation: 'inherit',
+        transitionIn: 'inherit',
+        sourceSegment: seg.index,
+      };
+    });
 
     const audioClips: AudioClip[] = audioAssets.map((aud) => ({
       id: `audio-${aud.id}`,
@@ -119,11 +124,14 @@ export const ScriptReviewView: React.FC<ScriptReviewViewProps> = ({
     onAcceptTimeline({ clips, audio: audioClips });
   };
 
-  const mappedAssets: MappedAsset[] = segments.map((_, idx) => ({
-    id: imageAssets[idx]?.id || `placeholder-${idx + 1}`,
-    name: imageAssets[idx]?.name || `Placeholder Image ${idx + 1}`,
-    thumbnailUrl: imageAssets[idx]?.thumbnailUrl,
-  }));
+  const mappedAssets: MappedAsset[] = segments.map((seg, idx) => {
+    const asset = findAssetForSegment(imageAssets, seg.index, idx);
+    return {
+      id: asset?.id || `placeholder-${idx + 1}`,
+      name: asset?.name || `Placeholder Image ${idx + 1}`,
+      thumbnailUrl: asset?.thumbnailUrl,
+    };
+  });
 
   return (
     <div className="max-w-6xl mx-auto py-6 px-4 space-y-6">
@@ -184,53 +192,18 @@ export const ScriptReviewView: React.FC<ScriptReviewViewProps> = ({
 
           <Button variant="primary" size="md" onClick={handleAccept} aria-label="Accept and Build Timeline">
             <Check className="w-4 h-4 mr-1.5" />
-            Accept Timeline
+            Accept and Build Timeline
           </Button>
         </div>
       </div>
 
-      {/* Prominent Smart Sync Callout Banner */}
-      {!hasSynced && hasAudioAndNarration && (
-        <div className="p-4 rounded-panel bg-accent/15 border border-accent/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs animate-in fade-in duration-200">
-          <div className="flex items-start sm:items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-accent/20 border border-accent/40 flex items-center justify-center text-accent shrink-0">
-              <Wand2 className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="font-semibold text-text-primary block text-sm">
-                Voiceover audio & spoken script segments detected
-              </span>
-              <p className="text-text-secondary text-2xs mt-0.5 leading-relaxed">
-                Run Smart Sync to snap image cuts to the exact spoken words instead of estimated script timestamps.
-              </p>
-            </div>
-          </div>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setIsSmartSyncOpen(true)}
-            className="shrink-0 font-semibold"
-          >
-            <Wand2 className="w-3.5 h-3.5 mr-1.5" />
-            Sync Cuts to Audio (Smart Sync)
-          </Button>
-        </div>
-      )}
-
-      {/* Diagnostics / Warnings */}
-      {parseResult.diagnostics.length > 0 && (
-        <div className="p-3 bg-surface-elevated border border-border rounded-panel text-xs space-y-1.5">
-          <div className="flex items-center gap-1.5 text-warning font-semibold">
-            <AlertTriangle className="w-3.5 h-3.5" />
-            <span>Parser Diagnostics ({parseResult.diagnostics.length})</span>
-          </div>
-          <ul className="list-disc pl-5 text-2xs text-text-secondary space-y-0.5">
-            {parseResult.diagnostics.map((d, i) => (
-              <li key={i}>{d.message}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {/* Smart Sync Banner & Diagnostics */}
+      <ScriptReviewHeaderAlerts
+        hasSynced={hasSynced}
+        hasAudioAndNarration={hasAudioAndNarration}
+        onOpenSmartSync={() => setIsSmartSyncOpen(true)}
+        diagnostics={parseResult.diagnostics}
+      />
 
       {/* Mismatch Resolver */}
       <MismatchResolver

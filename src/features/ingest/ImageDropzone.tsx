@@ -1,7 +1,8 @@
 import React, { useRef, useState } from 'react';
-import { Upload, X, RefreshCw, AlertCircle, Image as ImageIcon } from 'lucide-react';
-import { Button, IconButton } from '../../ui';
+import { Upload, Image as ImageIcon, ArrowUpDown } from 'lucide-react';
+import { Button } from '../../ui';
 import { IngestedImage } from './types';
+import { ImageCardItem } from './ImageCardItem';
 import { naturalSort } from '../../core/utils/naturalSort';
 import { createDownscaledThumbnail } from '../../core/utils/thumbnailGenerator';
 import { saveMediaFile } from '../../core/storage/opfs';
@@ -21,7 +22,6 @@ export const ImageDropzone: React.FC<ImageDropzoneProps> = ({
   const replaceInputRef = useRef<HTMLInputElement>(null);
   const [replacingImageId, setReplacingImageId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
   const processFiles = async (files: FileList | File[]) => {
     setIsProcessing(true);
@@ -133,6 +133,11 @@ export const ImageDropzone: React.FC<ImageDropzoneProps> = ({
     }
   };
 
+  const handleSortNaturally = () => {
+    const sorted = naturalSort(images, (img) => img.name);
+    onImagesChange(sorted.map((img, idx) => ({ ...img, order: idx + 1 })));
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -145,15 +150,30 @@ export const ImageDropzone: React.FC<ImageDropzoneProps> = ({
             Naturally sorted by filename. Drag cards to adjust beat order.
           </p>
         </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => fileInputRef.current?.click()}
-          aria-label="Upload Images"
-        >
-          <Upload className="w-3.5 h-3.5 mr-1" />
-          Add Images
-        </Button>
+        <div className="flex items-center gap-2">
+          {images.length > 1 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSortNaturally}
+              title="Sort Naturally (1, 2, 10)"
+              aria-label="Sort Naturally"
+              className="text-2xs h-8 text-text-secondary hover:text-text-primary"
+            >
+              <ArrowUpDown className="w-3.5 h-3.5 mr-1 text-accent" />
+              Sort Naturally (1, 2, 10)
+            </Button>
+          )}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            aria-label="Upload Images"
+          >
+            <Upload className="w-3.5 h-3.5 mr-1" />
+            Add Images
+          </Button>
+        </div>
       </div>
 
       <input
@@ -199,81 +219,17 @@ export const ImageDropzone: React.FC<ImageDropzoneProps> = ({
           onDrop={handleDrop}
         >
           {images.map((img, idx) => (
-            <div
+            <ImageCardItem
               key={img.id}
-              draggable
-              onDragStart={(e) => e.dataTransfer.setData('text/plain', String(idx))}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOverIdx(idx);
+              image={img}
+              index={idx}
+              onReorder={handleReorder}
+              onReplace={(id) => {
+                setReplacingImageId(id);
+                replaceInputRef.current?.click();
               }}
-              onDragLeave={() => setDragOverIdx(null)}
-              onDrop={(e) => {
-                e.preventDefault();
-                const fromStr = e.dataTransfer.getData('text/plain');
-                if (fromStr) {
-                  handleReorder(parseInt(fromStr, 10), idx);
-                }
-                setDragOverIdx(null);
-              }}
-              className={`group relative bg-surface border rounded-panel overflow-hidden transition-all ${
-                dragOverIdx === idx ? 'border-accent ring-2 ring-accent/30' : 'border-border hover:border-border-strong'
-              }`}
-            >
-              {/* Thumbnail Container */}
-              <div className="aspect-video bg-canvas flex items-center justify-center relative overflow-hidden">
-                {img.isCorrupt ? (
-                  <div className="flex flex-col items-center justify-center p-2 text-center text-error">
-                    <AlertCircle className="w-5 h-5 mb-1" />
-                    <span className="text-2xs">Corrupt File</span>
-                  </div>
-                ) : img.thumbnailUrl ? (
-                  <img
-                    src={img.thumbnailUrl}
-                    alt={img.name}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                ) : (
-                  <ImageIcon className="w-6 h-6 text-text-tertiary opacity-40" />
-                )}
-
-                {/* Order Badge */}
-                <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-black/75 backdrop-blur-sm text-2xs font-mono font-bold text-text-primary">
-                  {img.order}
-                </span>
-
-                {/* Hover Quick Actions */}
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-1.5 transition-opacity">
-                  <IconButton
-                    size="sm"
-                    aria-label={`Replace ${img.name}`}
-                    className="w-7 h-7 text-white hover:text-accent bg-surface/80"
-                    onClick={() => {
-                      setReplacingImageId(img.id);
-                      replaceInputRef.current?.click();
-                    }}
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                  </IconButton>
-                  <IconButton
-                    size="sm"
-                    aria-label={`Remove ${img.name}`}
-                    className="w-7 h-7 text-white hover:text-error bg-surface/80"
-                    onClick={() => handleRemove(img.id)}
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </IconButton>
-                </div>
-              </div>
-
-              {/* Caption */}
-              <div className="p-1.5 bg-surface-elevated truncate">
-                <p className="text-2xs font-medium text-text-secondary truncate" title={img.name}>
-                  {img.name}
-                </p>
-              </div>
-            </div>
+              onRemove={handleRemove}
+            />
           ))}
         </div>
       )}
