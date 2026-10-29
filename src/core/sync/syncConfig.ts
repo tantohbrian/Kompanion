@@ -41,6 +41,7 @@ export function getSyncConfig(): SyncConfig {
         typeof parsed.geminiApiKey === 'string' && parsed.geminiApiKey.trim()
           ? parsed.geminiApiKey.trim()
           : DEFAULT_GEMINI_KEY,
+      geminiModel: parsed.geminiModel === 'gemini-2.0-flash' ? 'gemini-2.0-flash' : 'gemini-2.5-flash',
       groqApiKey:
         typeof parsed.groqApiKey === 'string' && parsed.groqApiKey.trim()
           ? parsed.groqApiKey.trim()
