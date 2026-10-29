@@ -57,6 +57,12 @@
   --color-error: #ff3b30;
 }
 
+:root,
+html,
+body {
+  color-scheme: dark;
+}
+
 /* Global resets & typography */
 html,
 body,
@@ -66,10 +72,48 @@ body,
   padding: 0;
   background-color: var(--color-canvas);
   color: var(--color-text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', Inter, system-ui, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.011em;
   user-select: none;
+}
+
+/* Sleek dark custom scrollbars matching NLE aesthetic */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2e2e38 #0d0d10;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0d0d10;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2a35;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f4e;
+}
+
+::-webkit-scrollbar-corner {
+  background: #0d0d10;
+}
+
+::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 /* Tabular numbers for all timecodes */

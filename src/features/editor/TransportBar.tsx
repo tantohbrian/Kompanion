@@ -4,14 +4,24 @@ import {
   Pause,
   SkipBack,
   SkipForward,
-  ChevronLeft,
-  ChevronRight,
+  StepBack,
+  StepForward,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { IconButton } from '../../ui';
 import { playerController } from './playerController';
 import { useTimelineStore, formatTimecode, calculateTotalVisualDuration } from '../../core/timeline';
 
-export const TransportBar: React.FC = () => {
+export interface TransportBarProps {
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
+}
+
+export const TransportBar: React.FC<TransportBarProps> = ({
+  isFullscreen = false,
+  onToggleFullscreen,
+}) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const timecodeRef = useRef<HTMLSpanElement | null>(null);
 
@@ -61,9 +71,9 @@ export const TransportBar: React.FC = () => {
   };
 
   return (
-    <div className="h-10 border-b border-border bg-surface px-4 flex items-center justify-between shrink-0 select-none">
-      {/* Left spacer */}
-      <div className="w-32" />
+    <div className="h-11 border-b border-white/[0.06] bg-[#0f0f13] px-4 flex items-center justify-between shrink-0 select-none">
+      {/* Left spacer for symmetry */}
+      <div className="w-28" />
 
       {/* Center: Playback Controls */}
       <div className="flex items-center gap-1.5">
@@ -72,6 +82,7 @@ export const TransportBar: React.FC = () => {
           size="sm"
           onClick={handleJumpStart}
           title="Jump to start (Home)"
+          className="hover:bg-white/[0.08] text-text-secondary hover:text-text-primary rounded w-8 h-8"
         >
           <SkipBack className="w-3.5 h-3.5" />
         </IconButton>
@@ -81,27 +92,33 @@ export const TransportBar: React.FC = () => {
           size="sm"
           onClick={handleStepBackFrame}
           title="Step back 1 frame (Left Arrow)"
+          className="hover:bg-white/[0.08] text-text-secondary hover:text-text-primary rounded w-8 h-8"
         >
-          <ChevronLeft className="w-4 h-4" />
+          <StepBack className="w-3.5 h-3.5" />
         </IconButton>
 
-        <IconButton
+        <button
+          type="button"
           aria-label={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
-          size="sm"
-          variant="primary"
           onClick={handleTogglePlay}
           title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
+          className="w-8 h-8 bg-accent hover:bg-accent-hover text-white rounded-lg shadow-sm flex items-center justify-center transition-all active:scale-95 mx-1"
         >
-          {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
-        </IconButton>
+          {isPlaying ? (
+            <Pause className="w-4 h-4 fill-current" />
+          ) : (
+            <Play className="w-4 h-4 fill-current ml-0.5" />
+          )}
+        </button>
 
         <IconButton
           aria-label="Step forward 1 frame (Right Arrow)"
           size="sm"
           onClick={handleStepForwardFrame}
           title="Step forward 1 frame (Right Arrow)"
+          className="hover:bg-white/[0.08] text-text-secondary hover:text-text-primary rounded w-8 h-8"
         >
-          <ChevronRight className="w-4 h-4" />
+          <StepForward className="w-3.5 h-3.5" />
         </IconButton>
 
         <IconButton
@@ -109,20 +126,33 @@ export const TransportBar: React.FC = () => {
           size="sm"
           onClick={handleJumpEnd}
           title="Jump to end (End)"
+          className="hover:bg-white/[0.08] text-text-secondary hover:text-text-primary rounded w-8 h-8"
         >
           <SkipForward className="w-3.5 h-3.5" />
         </IconButton>
       </div>
 
-      {/* Right: Tabular Timecode Display */}
-      <div className="w-36 flex justify-end">
+      {/* Right: Tabular Timecode Display & Fullscreen Button */}
+      <div className="flex items-center gap-2 justify-end">
         <span
           ref={timecodeRef}
-          className="text-xs font-mono tabular-nums text-text-secondary bg-surface-elevated/60 px-2 py-0.5 rounded border border-border-subtle"
+          className="text-xs font-mono tabular-nums text-text-secondary bg-white/[0.04] px-2.5 py-1 rounded border border-white/[0.06]"
           aria-label="Current timecode"
         >
           {formatTimecode(0, fps)} / {formatTimecode(totalDurationMs, fps)}
         </span>
+
+        {onToggleFullscreen && (
+          <IconButton
+            aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Preview'}
+            size="sm"
+            onClick={onToggleFullscreen}
+            title={isFullscreen ? 'Exit Fullscreen (Esc / F)' : 'Fullscreen Preview (F)'}
+            className="hover:bg-white/[0.08] text-text-secondary hover:text-text-primary rounded ml-1 w-8 h-8"
+          >
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+          </IconButton>
+        )}
       </div>
     </div>
   );

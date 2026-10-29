@@ -14,11 +14,22 @@ export interface SyncConfig {
 
 const STORAGE_KEY = 'kompanion:syncConfig';
 
+interface ImportMetaEnv {
+  env?: {
+    VITE_GEMINI_API_KEY?: string;
+    VITE_GROQ_API_KEY?: string;
+  };
+}
+
 export const DEFAULT_GEMINI_KEY =
-  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_GEMINI_API_KEY) || '';
+  (typeof import.meta !== 'undefined' &&
+    (import.meta as unknown as ImportMetaEnv).env?.VITE_GEMINI_API_KEY) ||
+  '';
 
 export const DEFAULT_GROQ_KEY =
-  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_GROQ_API_KEY) || '';
+  (typeof import.meta !== 'undefined' &&
+    (import.meta as unknown as ImportMetaEnv).env?.VITE_GROQ_API_KEY) ||
+  '';
 
 export const DEFAULT_SYNC_CONFIG: SyncConfig = {
   provider: 'gemini',
